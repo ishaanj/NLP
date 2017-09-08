@@ -1,17 +1,6 @@
 import os
 import operator
 
-#open file
-filepath = os.path.abspath(".")
-fp = open(filepath + "\SentimentDataset\Dev\pos.txt", 'r')
-fn = open(filepath + "\SentimentDataset\Dev\\"+"neg.txt", 'r')
-
-#read corpora
-pos = fp.read()
-pos = pos.split()
-neg = fn.read()
-neg = neg.split()
-
 #make uni and bigram
 def ngram(s):
     unigram = {}
@@ -38,6 +27,22 @@ def ngram(s):
 
     return unigram, bigram
 
+#TODO: random sentence generation
+# Use . as </s>
+# def randuni(uni):
+# def randbi(bi):
+
+#open file
+filepath = os.path.abspath(".")
+fp = open(filepath + "\SentimentDataset\Dev\pos.txt", 'r')
+fn = open(filepath + "\SentimentDataset\Dev\\"+"neg.txt", 'r')
+
+#read corpora
+pos = fp.read()
+pos = pos.split()
+neg = fn.read()
+neg = neg.split()
+
 #get the ngrams
 unipos, bipos = ngram(pos)
 unineg, bineg = ngram(neg)
@@ -48,7 +53,9 @@ bipos = sorted(bipos.items(), key=operator.itemgetter(1), reverse = True)
 unineg = sorted(unineg.items(), key=operator.itemgetter(1), reverse = True)
 bineg = sorted(bineg.items(), key=operator.itemgetter(1), reverse = True)
 
+#print for sanity
 print(unipos)
 print(bipos)
 print(unineg)
 print(bineg)
+
