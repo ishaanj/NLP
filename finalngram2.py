@@ -34,10 +34,25 @@ def ngram (fs):
             possible_next_words[listtokens[idx-1]].add(listtokens[idx])
     
     return unigram, bigram, total_token_count, possible_next_words
-    
+
+def gen_unseen_bigrams(unigrams, bigrams):
+    unigram_tokens = list(unigrams.keys())
+    for i in unigram_tokens:
+        for j in unigram_tokens:
+            c = i+"|"+j
+            if c not in bigrams:
+                bigrams[c] = 0
+    return unigrams, bigrams
+
 def get_probs(unigram, bigram, total_token_count):
     #calculate probabilities
     for i in bigram:
+        # if bigram[i] == 0:
+        #     bigram[i] += 0.000027
+        # elif bigram[i] == 1:
+        #     bigram[i] -= 0.5
+        # else:
+        #     bigram[i] -= 0.75
         bigram[i] /= unigram[i.split("|")[1]]
     for i in unigram:
         unigram[i] /= total_token_count
@@ -140,12 +155,6 @@ def bigram_sentence_generator(num_sentences, length_bound, biprob, possible_next
             current_word = tokens[0]
         sentence.append("</s>")
         yield " ".join(sentence)
-    
-
-#TODO: random sentence generation
-# Use . as </s> (done)
-# def randuni(uni): (done along with probs)
-# def randbi(bi): (done along with probs)
 
 #open file
 filepath = os.path.abspath(".")
@@ -160,9 +169,14 @@ unineg, bineg, total_token_count_neg, possible_next_words_neg = ngram(fn)
 unipos, bipos, possible_next_words_pos = substitute_unks(unipos, bipos, possible_next_words_pos)
 unineg, bineg, possible_next_words_neg = substitute_unks(unineg, bineg, possible_next_words_neg)
 
+#generate unseen bigrams
+unipos, bipos = gen_unseen_bigrams(unipos, bipos)
+unineg, bineg = gen_unseen_bigrams(unineg, bineg)
+
 #get probabilities
 unipos, bipos = get_probs(unipos, bipos, total_token_count_pos)
 unineg, bineg = get_probs(unineg, bineg, total_token_count_neg)
+
 
 
 #Set number of sentences to generate
@@ -183,7 +197,7 @@ print ("Negative Unigram Sentences:")
 print()
 for sentence in unigram_sentence_generator(num_sentences, length_bound, unineg):
     print(sentence)
-    
+
 #Print Positive Bigram Sentences
 print()
 print ("Positive Bigram Sentences:")
@@ -197,7 +211,7 @@ print ("Negative Bigram Sentences:")
 print()
 for sentence in bigram_sentence_generator(num_sentences, length_bound, bineg, possible_next_words_neg):
     print(sentence)
-    
+
 #Print Positive Bigram Sentences with seeding
 
 print()
@@ -209,7 +223,7 @@ for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_
     print(sentence)
 for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "The film"):
     print(sentence)
-    
+
 #Print Negative Bigram Sentences with seeding
 print()
 print ("Negative Bigram Sentences with seeding:")
