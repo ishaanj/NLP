@@ -22,7 +22,9 @@ def ngram (fs):
                 unigram[token] = 1.0
                 
         for idx in range(1,len(listtokens)):
-            big = listtokens[idx]+"|"+listtokens[idx-1]
+            c = listtokens[idx]
+            c2 = listtokens[idx-1]
+            big = c+"|"+c2
             if big in bigram:
                 bigram[big] += 1.0
             else:
@@ -33,7 +35,10 @@ def ngram (fs):
     
     #calculate probabilities
     for i in bigram:
-        bigram[i] /= unigram[i.split("|")[1]]
+        c = i.split("|")[1]
+        if c == '':
+            c = 'empty'
+        bigram[i] /= unigram[c]
     for i in unigram:
         unigram[i] /= total_token_count
 
@@ -74,26 +79,22 @@ def bigram_sentence_generator(num_sentences, length_bound, biprob, possible_next
             current_word = tokens[0]
         sentence.append("</s>")
         yield " ".join(sentence)
-    
-
-#TODO: random sentence generation
-# Use . as </s> (done)
-# def randuni(uni): (done along with probs)
-# def randbi(bi): (done along with probs)
 
 #open file
 filepath = os.path.abspath(".")
 fp = open(filepath + "\SentimentDataset\Train\pos.txt", 'r')
 fn = open(filepath + "\SentimentDataset\Train\\"+"neg.txt", 'r')
+# fp = open(filepath + "\somchat_mod", 'r', encoding='utf8')
+# fn = open(filepath + "\somchat_mod", 'r', encoding='utf8')
 
 #get the ngrams
 unipos, bipos, possible_next_words_pos = ngram(fp)
 unineg, bineg, possible_next_words_neg = ngram(fn)
 
 #Set number of sentences to generate
-num_sentences = 3
+num_sentences = 5
 #Set Upper bound on the length of the sentences to generate
-length_bound = 10
+length_bound = 15
 
 #Print Positive Unigram Sentences
 print()
