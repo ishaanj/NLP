@@ -1,6 +1,7 @@
 import os
 import operator
 import numpy as np
+import math
     
 #make uni and bigram
 def ngram (fs):
@@ -35,17 +36,24 @@ def ngram (fs):
     
     return unigram, bigram, total_token_count, possible_next_words
 
-def gen_unseen_bigrams(unigrams, bigrams):
+def gen_unseen_bigrams(unigrams, bigrams, possible_next_words):
     unigram_tokens = list(unigrams.keys())
+    #unigram_tokens.extend(["<s>", "</s>"])
     for i in unigram_tokens:
         for j in unigram_tokens:
             c = i+"|"+j
             if c not in bigrams:
                 bigrams[c] = 0
-    return unigrams, bigrams
+        for token in possible_next_words:
+            if i not in possible_next_words[token]:
+                possible_next_words[token].add(i)
+    return unigrams, bigrams, possible_next_words
 
-def get_probs(unigram, bigram, total_token_count):
+def get_probs(unigram, bigram, total_token_count, k_value = 0):
     #calculate probabilities
+    unigram_prob = dict(unigram)
+    bigram_prob = dict(bigram)
+    vocab_size = len(unigram)
     for i in bigram:
         # if bigram[i] == 0:
         #     bigram[i] += 0.000027
@@ -53,11 +61,39 @@ def get_probs(unigram, bigram, total_token_count):
         #     bigram[i] -= 0.5
         # else:
         #     bigram[i] -= 0.75
-        bigram[i] /= unigram[i.split("|")[1]]
+        bigram_prob[i] = (bigram[i] + k_value) / (unigram[i.split("|")[1]] + (k_value * vocab_size))
     for i in unigram:
-        unigram[i] /= total_token_count
+        unigram_prob[i] /= total_token_count
 
-    return unigram, bigram
+    return unigram_prob, bigram_prob
+    
+def findk(fs, k_values, unigram, bigram, total_token_count):
+    mxprob = 0
+    mxk = 0
+    for k_value in k_values:
+        unigram_prob, bigram_prob = get_probs(unigram, bigram, total_token_count, k_value)
+        curprob = 0
+        with open(fs, "r") as f:
+            current_token = "<s>"
+            for line in f:
+                line = line.strip()
+                #line = line.lstrip(".-_,")
+                #line = line.rstrip(".?!")
+                #line = line + " </s>"
+                listtokens = line.split()
+                for token in listtokens:
+                    tkn = token
+                    if token not in unigram:
+                        tkn = "<unk>"
+                    curprob += -math.log(bigram_prob[tkn + "|" + current_token])
+                    current_token = tkn
+            curprob += -math.log(bigram_prob["</s>" + "|" + current_token])
+            print("k_value: %s curprob: %s"%(k_value, curprob))
+            if curprob > mxprob:
+                mxprob = curprob
+                mxk = k_value
+    print("Best k_value: %s mxprob: %s"%(mxk, mxprob))
+    return mxk
     
 def substitute_unks(unigrams, bigrams, possible_next_words):
     unk_tokens = set()
@@ -165,17 +201,28 @@ fn = open(filepath + "\SentimentDataset\Train\\"+"neg.txt", 'r')
 unipos, bipos, total_token_count_pos, possible_next_words_pos = ngram(fp)
 unineg, bineg, total_token_count_neg, possible_next_words_neg = ngram(fn)
 
+fp.close()
+fn.close()
+
 #Replace unks
 unipos, bipos, possible_next_words_pos = substitute_unks(unipos, bipos, possible_next_words_pos)
 unineg, bineg, possible_next_words_neg = substitute_unks(unineg, bineg, possible_next_words_neg)
 
 #generate unseen bigrams
-unipos, bipos = gen_unseen_bigrams(unipos, bipos)
-unineg, bineg = gen_unseen_bigrams(unineg, bineg)
+unipos, bipos, possible_next_words_pos = gen_unseen_bigrams(unipos, bipos, possible_next_words_pos)
+unineg, bineg, possible_next_words_neg = gen_unseen_bigrams(unineg, bineg, possible_next_words_neg)
+
+fp = filepath + "\SentimentDataset\Dev\pos.txt"
+fn = filepath + "\SentimentDataset\Dev\\"+"neg.txt"
+
+#find k for add k smoothing
+k_values = [0.1*x for x in range(1, 11)]
+kpos = findk(fp, k_values, unipos, bipos, total_token_count_pos)
+kneg = findk(fn, k_values, unineg, bineg, total_token_count_neg)
 
 #get probabilities
-unipos, bipos = get_probs(unipos, bipos, total_token_count_pos)
-unineg, bineg = get_probs(unineg, bineg, total_token_count_neg)
+unipos, bipos = get_probs(unipos, bipos, total_token_count_pos, kpos)
+unineg, bineg = get_probs(unineg, bineg, total_token_count_neg, kneg)
 
 
 
