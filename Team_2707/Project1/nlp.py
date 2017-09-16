@@ -52,7 +52,7 @@ def add_start_end_tokens(filename):
                 else:
                     next_words[temp[t-1]] = set()
                     next_words[temp[t-1]].add(temp[t])
-
+    f.close()
     return unigram_count, bigram_count, unigram_total_count, next_words
 
 
@@ -117,17 +117,17 @@ pos = train_dir + "pos.txt"
 neg = train_dir + "neg.txt"
 
 unigram_count, bigram_count, unigram_total_count, next_words = add_start_end_tokens(pos)
-prob_unigram = unigram(unigram_count, unigram_total_count)
-prob_bigram = bigram(bigram_count, unigram_count)
-unigram_sentence = gen_unigram_sentence(10, prob_unigram)
-print "Unigram generated sentence:\t%s" % (" ".join(unigram_sentence))
-
-bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words)
-print "Bigram generated sentence:\t%s" % (" ".join(bigram_sentence))
-
-seed = "simply radiates star-power potential"
-bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words, seed=seed)
-print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_sentence))
+# prob_unigram = unigram(unigram_count, unigram_total_count)
+# prob_bigram = bigram(bigram_count, unigram_count)
+# unigram_sentence = gen_unigram_sentence(10, prob_unigram)
+# print "Unigram generated sentence:\t%s" % (" ".join(unigram_sentence))
+#
+# bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words)
+# print "Bigram generated sentence:\t%s" % (" ".join(bigram_sentence))
+#
+# seed = "simply radiates star-power potential"
+# bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words, seed=seed)
+# print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_sentence))
 
 def define_unk(unigram_count, bigram_count, next_words):
     count = 0
@@ -176,9 +176,16 @@ def define_unk(unigram_count, bigram_count, next_words):
                 next_words['<unk>']= next_words[word]
             del next_words[word]
     pass
+def add_zero_prob_words(unigram__count, bigram_count):
+    for word1 in unigram_count:
+        for word2 in unigram_count:
+            if (word1,word2) not in bigram_count:
+                bigram_count[(word1,word2)] = 0
 
 print "*"*80
 define_unk(unigram_count, bigram_count, next_words)
+add_zero_prob_words(unigram_count, bigram_count)
+
 prob_unigram = unigram(unigram_count, unigram_total_count)
 prob_bigram = bigram(bigram_count, unigram_count)
 unigram_sentence = gen_unigram_sentence(10, prob_unigram)
