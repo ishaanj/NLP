@@ -221,8 +221,22 @@ print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_s
 
 #next, do smoothing
 
-prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, 1)
-prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, 1)
+k_arr = [0.001, 0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1]
+k_max = 0
+k_max_i = ""
+k_best = 0
+for k in k_arr:
+    prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k)
+    # prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, k)
+
+    for i in unigram_count:
+        if prob_unigram[i] > k_max:
+            k_max = prob_unigram[i]
+            k_max_i = i
+            k_best = k
+        break
+
+print "Unigram prob smoothed: %s %s %s" % (k_max_i, k_max, k_best)
 
 # count = 0
 #
