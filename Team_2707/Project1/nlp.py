@@ -1,6 +1,28 @@
 import os
 import numpy as np
 import time
+import math
+
+def clean_data_and_split(line, add_start_end_tokens):
+    line = line.lower()
+
+    temp = []
+    if add_start_end_tokens:
+        temp.append("<s>")
+    line = line.replace(";", " ")
+    line = line.replace(":", " ")
+    line = line.replace(",", " ")
+    line = line.replace("'", " ")
+    line = line.replace("`", " ")
+    line = line.replace('"', " ")
+    line = line.replace('.', " ")
+    line = line.replace('\n', " ")
+    temp.extend(line.split(" "))
+    if add_start_end_tokens:
+        temp.append("</s>")
+    while '' in temp:
+        temp.remove('')
+    return temp
 
 def add_start_end_tokens(filename):
     """
@@ -19,20 +41,7 @@ def add_start_end_tokens(filename):
     f = open(filename, 'r')
     unigram_total_count = 0
     for line in f.readlines():
-        line = line.lower()
-        temp = ["<s>"]
-        line = line.replace(";", " ")
-        line = line.replace(":", " ")
-        line = line.replace(",", " ")
-        line = line.replace("'", " ")
-        line = line.replace("`", " ")
-        line = line.replace('"', " ")
-        line = line.replace('.', " ")
-        line = line.replace('\n', " ")
-        temp.extend(line.split(" "))
-        temp.append("</s>")
-        while '' in temp:
-            temp.remove('')
+        temp = clean_data_and_split(line, True)
 
         for t in range(len(temp)):
             unigram_total_count+=1
@@ -112,9 +121,13 @@ The python script has to be placed in \\Project1 directory
 """
 cur_dir = os.path.abspath(os.path.curdir)
 train_dir =cur_dir + '\\SentimentDataset\\Train\\'
+dev_dir =cur_dir + '\\SentimentDataset\\Dev\\'
 
 pos = train_dir + "pos.txt"
 neg = train_dir + "neg.txt"
+
+pos_val = dev_dir + "pos.txt"
+neg_val = dev_dir + "neg.txt"
 
 unigram_count, bigram_count, unigram_total_count, next_words = add_start_end_tokens(pos)
 # prob_unigram = unigram(unigram_count, unigram_total_count)
@@ -201,6 +214,41 @@ def add_plus_k_smoothing_bigram(bigram_count, unigram_count, k):
         prob_bigram[i] = prob
     return prob_bigram
 
+def evaluate_dev_model_bigram(prob_bigram_smooth, filename):
+    f = open(filename, 'r')
+
+    corpus = ["<s>"]
+    for line in f.readlines():
+        corpus.extend(clean_data_and_split(line, False))
+    corpus.append(["</s>"])
+
+    running_log_prob = 0
+
+    for t in range(len(corpus)):
+        if t > 0:
+            tup = (corpus[t - 1], corpus[t])
+            if tup in prob_bigram_smooth:
+                running_log_prob += math.log(prob_bigram_smooth[tup])
+            continue
+
+            tup = ("<unk>", corpus[t])
+            if tup in prob_bigram_smooth:
+                running_log_prob += math.log(prob_bigram_smooth[tup])
+            continue
+
+            tup = (corpus[t - 1], "<unk>")
+            if tup in prob_bigram_smooth:
+                running_log_prob += math.log(prob_bigram_smooth[tup])
+            continue
+
+            tup = ("<unk>", "<unk>")
+            running_log_prob += math.log(prob_bigram_smooth[tup])
+
+    return running_log_prob
+
+
+
+
 start_time = time.time()
 
 print "*"*80
@@ -223,20 +271,17 @@ print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_s
 
 k_arr = [0.001, 0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1, 3, 5]
 k_max = 0
-k_max_i = ""
 k_best = 0
 for k in k_arr:
-    prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k)
-    # prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, k)
+    # prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k)
+    prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, k)
+    evaluated_prob = evaluate_dev_model_bigram(prob_bigram_smooth, pos_val)
 
-    for i in unigram_count:
-        if prob_unigram_smooth[i] > k_max:
-            k_max = prob_unigram_smooth[i]
-            k_max_i = i
-            k_best = k
-        break
+    if evaluated_prob > k_max:
+        k_max = evaluated_prob
+        k_best = k
 
-print "Unigram prob smoothed: %s %s %s" % (k_max_i, k_max, k_best)
+print "Unigram prob smoothed: %s %s" % (k_max, k_best)
 
 # count = 0
 #
