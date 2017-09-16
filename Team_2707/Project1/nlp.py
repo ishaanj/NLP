@@ -1,6 +1,6 @@
 import os
 import numpy as np
-
+import time
 
 def add_start_end_tokens(filename):
     """
@@ -176,11 +176,31 @@ def define_unk(unigram_count, bigram_count, next_words):
                 next_words['<unk>']= next_words[word]
             del next_words[word]
     pass
-def add_zero_prob_words(unigram__count, bigram_count):
+def add_zero_prob_words(unigram_count, bigram_count):
     for word1 in unigram_count:
         for word2 in unigram_count:
             if (word1,word2) not in bigram_count:
                 bigram_count[(word1,word2)] = 0
+
+def add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k):
+    total_word_type = len(set(unigram_count))
+    #add +k to all counts
+    prob_unigram = {}
+    for i in unigram_count:
+        prob = (unigram_count[i] + k) / (unigram_total_count * 1.0 + total_word_type * k * 1.0)
+        prob_unigram[i] = prob
+    return prob_unigram
+
+def add_plus_k_smoothing_bigram(bigram_count, unigram_count, k):
+    total_word_type = len(set(bigram_count))
+    #add +k to all counts
+    prob_bigram = {}
+    for i in bigram_count:
+        prob = (bigram_count[i] + k) / (unigram_count[i[0]] * 1.0+ total_word_type * k * 1.0)
+        prob_bigram[i] = prob
+    return prob_bigram
+
+start_time = time.time()
 
 print "*"*80
 define_unk(unigram_count, bigram_count, next_words)
@@ -197,3 +217,9 @@ print "Bigram generated sentence:\t%s" % (" ".join(bigram_sentence))
 seed = "simply radiates star-power potential"
 bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words, seed=seed)
 print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_sentence))
+
+#next, do smoothing
+prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, 1)
+prob_bigram_smooth = add_plus_k_smoothing_unigram(bigram_count, unigram_count, 1)
+
+print("--- %s seconds ---" % (time.time() - start_time))
