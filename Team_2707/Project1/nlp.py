@@ -223,6 +223,7 @@ def evaluate_dev_model_bigram(prob_bigram_smooth, filename):
     corpus.append("</s>")
 
     running_log_prob = 0
+    perplexity = 0
 
     for t in range(len(corpus)):
         if t > 1:
@@ -231,22 +232,26 @@ def evaluate_dev_model_bigram(prob_bigram_smooth, filename):
             #print tup
             if tup in prob_bigram_smooth:
                 running_log_prob += math.log(prob_bigram_smooth[tup])
+                perplexity -= math.log(prob_bigram_smooth[tup])
                 continue
 
             tup = ("<unk>", corpus[t])
             if tup in prob_bigram_smooth:
                 running_log_prob += math.log(prob_bigram_smooth[tup])
+                perplexity -= math.log(prob_bigram_smooth[tup])
                 continue
 
             tup = (corpus[t - 1], "<unk>")
             if tup in prob_bigram_smooth:
                 running_log_prob += math.log(prob_bigram_smooth[tup])
+                perplexity -= math.log(prob_bigram_smooth[tup])
                 continue
 
             tup = ("<unk>", "<unk>")
             running_log_prob += math.log(prob_bigram_smooth[tup])
+            perplexity -= math.log(prob_bigram_smooth[tup])
 
-    return running_log_prob
+    return running_log_prob, math.sqrt(perplexity)
 
 def calculate_k_on_corpus(bigram_count, unigram_count):
     k_arr = [0.0001, 0.001, 0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1, 3, 5]
@@ -255,9 +260,9 @@ def calculate_k_on_corpus(bigram_count, unigram_count):
     for k in k_arr:
         # prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k)
         prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, k)
-        evaluated_prob = evaluate_dev_model_bigram(prob_bigram_smooth, pos_val)
+        evaluated_prob, perplexity = evaluate_dev_model_bigram(prob_bigram_smooth, pos_val)
 
-        k_val[k] = evaluated_prob
+        k_val[k] = (evaluated_prob, perplexity)
     return k_val
 
 start_time = time.time()
@@ -282,11 +287,18 @@ print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_s
 k_val = calculate_k_on_corpus(bigram_count, unigram_count)
 
 k_max = None
+k_max_k = None
+k_min_perpl = None
+k_min_perpl_k = None
 
 for x in k_val:
-    if k_max is None or k_max < k_val[x]:
-        k_max = k_val[x]
-print "Unigram prob smoothed: %s" % (k_max)
+    if k_max is None or k_max < k_val[x][0]:
+        k_max = k_val[x][0]
+        k_max_k = x
+    if k_min_perpl is None or k_min > k_val[x][1]:
+        k_min = k_val[x][1]
+        k_min_k = x
+print "Unigram prob smoothed: %s %s, perpexity: %s %s" % (k_max, k_max_k, k_min, k_min_k)
 
 # count = 0
 #
