@@ -187,8 +187,9 @@ def add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k):
     #add +k to all counts
     prob_unigram = {}
     for i in unigram_count:
-        prob = (unigram_count[i] + k) / (unigram_total_count * 1.0 + total_word_type * k * 1.0)
-        prob_unigram[i] = prob
+        prob = (unigram_count[i] + k)
+        base = (unigram_total_count * 1.0 + total_word_type * k * 1.0)
+        prob_unigram[i] = prob/base
     return prob_unigram
 
 def add_plus_k_smoothing_bigram(bigram_count, unigram_count, k):
@@ -219,7 +220,16 @@ bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words, seed=seed)
 print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_sentence))
 
 #next, do smoothing
+
 prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, 1)
-prob_bigram_smooth = add_plus_k_smoothing_unigram(bigram_count, unigram_count, 1)
+prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, 1)
+
+# count = 0
+#
+# for i in unigram_count:
+#     print "Unigram prob: %s %s" % (i, prob_unigram[i])
+#     count+=1
+#     if count is 10:
+#         break
 
 print("--- %s seconds ---" % (time.time() - start_time))
