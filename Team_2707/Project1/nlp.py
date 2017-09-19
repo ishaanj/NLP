@@ -251,7 +251,7 @@ def evaluate_dev_model_bigram(prob_bigram_smooth, filename):
             running_log_prob += math.log(prob_bigram_smooth[tup])
             perplexity -= math.log(prob_bigram_smooth[tup])
 
-    return running_log_prob, math.sqrt(perplexity)
+    return running_log_prob, math.log(perplexity/len(corpus))
 
 def calculate_k_on_corpus(bigram_count, unigram_count):
     k_arr = [0.0001, 0.001, 0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1, 3, 5]
