@@ -2,7 +2,8 @@ import os
 import operator
 import numpy as np
 import math
-    
+import numpy as np
+
 #make uni and bigram
 def ngram (fs):
     unigram = {}
@@ -67,33 +68,17 @@ def get_probs(unigram, bigram, total_token_count, k_value = 0):
 
     return unigram_prob, bigram_prob
     
-def findk(fs, k_values, unigram, bigram, total_token_count):
-    mxprob = 0
-    mxk = 0
-    for k_value in k_values:
-        unigram_prob, bigram_prob = get_probs(unigram, bigram, total_token_count, k_value)
-        curprob = 0
-        with open(fs, "r") as f:
-            current_token = "<s>"
-            for line in f:
-                line = line.strip()
-                #line = line.lstrip(".-_,")
-                #line = line.rstrip(".?!")
-                #line = line + " </s>"
-                listtokens = line.split()
-                for token in listtokens:
-                    tkn = token
-                    if token not in unigram:
-                        tkn = "<unk>"
-                    curprob += -math.log(bigram_prob[tkn + "|" + current_token])
-                    current_token = tkn
-            curprob += -math.log(bigram_prob["</s>" + "|" + current_token])
-            print("k_value: %s curprob: %s"%(k_value, curprob))
-            if curprob > mxprob:
-                mxprob = curprob
-                mxk = k_value
-    print("Best k_value: %s mxprob: %s"%(mxk, mxprob))
-    return mxk
+def perplexity(uniprob, biprob, total_token_count):
+    curr = 0
+    for i in uniprob:
+        curr += -math.log(uniprob[i])
+    unipp = math.exp((1 / total_token_count) * curr)
+    curr = 0
+    for i in biprob:
+        curr += -math.log(biprob[i])
+    bipp = math.exp((1/total_token_count)*curr)
+
+    return unipp, bipp
     
 def substitute_unks(unigrams, bigrams, possible_next_words):
     unk_tokens = set()
@@ -192,6 +177,28 @@ def bigram_sentence_generator(num_sentences, length_bound, biprob, possible_next
         sentence.append("</s>")
         yield " ".join(sentence)
 
+def evaluni(line, unigram):
+    x = 1
+    words = line.split(" ")
+    for word in words:
+        if unigram.get(word, "") == "":
+            x += math.log(unigram['<unk>'])
+        else:
+            x += math.log(unigram[word])
+    return math.exp(x)
+
+def evalbi(line, unigram, bigram):
+    x = 1
+    words = ['<s>']
+    words.extend(line.split(" "))
+    words.append('</s>')
+    for i, w in enumerate(words):
+        if unigram.get(w, '') == '':
+            words[i] = '<unk>'
+    for idx, word in enumerate(words[:-1]):
+            x += math.log(bigram[words[idx+1]+'|'+word])
+    return math.exp(x)
+
 #open file
 filepath = os.path.abspath(".")
 fp = open(filepath + "\SentimentDataset\Train\pos.txt", 'r')
@@ -209,75 +216,91 @@ unipos, bipos, possible_next_words_pos = substitute_unks(unipos, bipos, possible
 unineg, bineg, possible_next_words_neg = substitute_unks(unineg, bineg, possible_next_words_neg)
 
 #generate unseen bigrams
-unipos, bipos, possible_next_words_pos = gen_unseen_bigrams(unipos, bipos, possible_next_words_pos)
-unineg, bineg, possible_next_words_neg = gen_unseen_bigrams(unineg, bineg, possible_next_words_neg)
+# unipos, bipos, possible_next_words_pos = gen_unseen_bigrams(unipos, bipos, possible_next_words_pos)
+# unineg, bineg, possible_next_words_neg = gen_unseen_bigrams(unineg, bineg, possible_next_words_neg)
 
 fp = filepath + "\SentimentDataset\Dev\pos.txt"
 fn = filepath + "\SentimentDataset\Dev\\"+"neg.txt"
 
 #find k for add k smoothing
-k_values = [0.1*x for x in range(1, 11)]
-kpos = findk(fp, k_values, unipos, bipos, total_token_count_pos)
-kneg = findk(fn, k_values, unineg, bineg, total_token_count_neg)
+kpos = 0.1
+kneg = 0.1
 
 #get probabilities
 unipos, bipos = get_probs(unipos, bipos, total_token_count_pos, kpos)
 unineg, bineg = get_probs(unineg, bineg, total_token_count_neg, kneg)
 
+# ppposu, ppposb = perplexity(unipos, bipos, total_token_count_pos)
+# ppnegu, ppnegb = perplexity(unineg, bineg, total_token_count_neg)
+#
+# print("Perplexity Positive Unigram: ", ppposu)
+# print("Perplexity Positive Bigram: ", ppposb)
+# print("Perplexity Negative Unigram: ", ppnegu)
+# print("Perplexity Negative Bigram: ", ppnegb)
 
+# #Set number of sentences to generate
+# num_sentences = 3
+# #Set Upper bound on the length of the sentences to generate
+# length_bound = 10
+#
+# #Print Positive Unigram Sentences
+# print()
+# print ("Positive Unigram Sentences:")
+# print()
+# for sentence in unigram_sentence_generator(num_sentences, length_bound, unipos):
+#     print(sentence)
+#
+# #Print Negative Unigram Sentences
+# print()
+# print ("Negative Unigram Sentences:")
+# print()
+# for sentence in unigram_sentence_generator(num_sentences, length_bound, unineg):
+#     print(sentence)
+#
+# #Print Positive Bigram Sentences
+# print()
+# print ("Positive Bigram Sentences:")
+# print()
+# for sentence in bigram_sentence_generator(num_sentences, length_bound, bipos, possible_next_words_pos):
+#     print(sentence)
+#
+# #Print Negative Bigram Sentences
+# print()
+# print ("Negative Bigram Sentences:")
+# print()
+# for sentence in bigram_sentence_generator(num_sentences, length_bound, bineg, possible_next_words_neg):
+#     print(sentence)
+#
+# #Print Positive Bigram Sentences with seeding
+#
+# print()
+# print ("Positive Bigram Sentences with seeding:")
+# print()
+# for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "The movie was"):
+#     print(sentence)
+# for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "I am"):
+#     print(sentence)
+# for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "The film"):
+#     print(sentence)
+#
+# #Print Negative Bigram Sentences with seeding
+# print()
+# print ("Negative Bigram Sentences with seeding:")
+# print()
+# for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "The movie was"):
+#     print(sentence)
+# for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "I am"):
+#     print(sentence)
+# for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "The film"):
+#     print(sentence)
 
-#Set number of sentences to generate
-num_sentences = 3
-#Set Upper bound on the length of the sentences to generate
-length_bound = 10
-
-#Print Positive Unigram Sentences
-print()
-print ("Positive Unigram Sentences:")
-print()
-for sentence in unigram_sentence_generator(num_sentences, length_bound, unipos):
-    print(sentence)
-
-#Print Negative Unigram Sentences
-print()
-print ("Negative Unigram Sentences:")
-print()
-for sentence in unigram_sentence_generator(num_sentences, length_bound, unineg):
-    print(sentence)
-
-#Print Positive Bigram Sentences
-print()
-print ("Positive Bigram Sentences:")
-print()
-for sentence in bigram_sentence_generator(num_sentences, length_bound, bipos, possible_next_words_pos):
-    print(sentence)
-
-#Print Negative Bigram Sentences
-print()
-print ("Negative Bigram Sentences:")
-print()
-for sentence in bigram_sentence_generator(num_sentences, length_bound, bineg, possible_next_words_neg):
-    print(sentence)
-
-#Print Positive Bigram Sentences with seeding
-
-print()
-print ("Positive Bigram Sentences with seeding:")
-print()
-for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "The movie was"):
-    print(sentence)
-for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "I am"):
-    print(sentence)
-for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "The film"):
-    print(sentence)
-
-#Print Negative Bigram Sentences with seeding
-print()
-print ("Negative Bigram Sentences with seeding:")
-print()
-for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "The movie was"):
-    print(sentence)
-for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "I am"):
-    print(sentence)
-for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "The film"):
-    print(sentence)
+ft = open(filepath + "\SentimentDataset\Test\\"+"test.txt", 'r')
+id = []
+pred = []
+for idx, line in enumerate(ft):
+    id.append(idx+1)
+    if evalbi(line, unipos, bipos) < evalbi(line, unineg, bineg):
+        pred.append(1)
+    else:
+        pred.append(0)
+np.savetxt("unipred.csv", np.column_stack((id, pred)), delimiter=",", fmt='%s', header='Id,Prediction', comments='')
