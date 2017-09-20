@@ -3,6 +3,8 @@ import numpy as np
 import time
 import math
 
+start_time = time.time()
+
 def clean_data_and_split(line, add_start_end_tokens):
     line = line.lower()
 
@@ -62,6 +64,7 @@ def add_start_end_tokens(filename):
                     next_words[temp[t-1]] = set()
                     next_words[temp[t-1]].add(temp[t])
     f.close()
+#    print("--- add_start_end_tokens %s seconds ---" % (time.time() - start_time))
     return unigram_count, bigram_count, unigram_total_count, next_words
 
 
@@ -70,14 +73,15 @@ def unigram(unigram_count, unigram_total_count):
     for i in unigram_count:
         prob = unigram_count[i] / (unigram_total_count * 1.0)
         prob_unigram[i] = prob
+#    print("--- unigram %s seconds ---" % (time.time() - start_time))
     return prob_unigram
-
 
 def bigram(bigram_count, unigram_count):
     prob_bigram = {}
     for i in bigram_count:
         prob = bigram_count[i] / (unigram_count[i[0]] * 1.0)
         prob_bigram[i] = prob
+    # print("--- bigram %s seconds ---" % (time.time() - start_time))
     return prob_bigram
 
 
@@ -96,8 +100,8 @@ def gen_unigram_sentence(n, prob_unigram):
         else:
             unigram_sentence.append(x[0])
             i+=1
+    # print("--- gen_unigram_sentence %s seconds ---" % (time.time() - start_time))
     return unigram_sentence
-
 
 def gen_bigram_sentence(n, prob_bigram, next_words, seed="<s>"):
     seed = seed.lower()
@@ -114,6 +118,7 @@ def gen_bigram_sentence(n, prob_bigram, next_words, seed="<s>"):
         cur = x[0]
         if cur == '</s>':
             break
+    # print("--- gen_bigram_sentence %s seconds ---" % (time.time() - start_time))
     return sentence
 
 """
@@ -188,12 +193,14 @@ def define_unk(unigram_count, bigram_count, next_words):
             else:
                 next_words['<unk>']= next_words[word]
             del next_words[word]
+    # print("--- define_unk %s seconds ---" % (time.time() - start_time))
     pass
 def add_zero_prob_words(unigram_count, bigram_count):
     for word1 in unigram_count:
         for word2 in unigram_count:
             if (word1,word2) not in bigram_count:
                 bigram_count[(word1,word2)] = 0
+    # print("--- add_zero_prob_words %s seconds ---" % (time.time() - start_time))
 
 def add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k):
     total_word_type = len(set(unigram_count))
@@ -203,6 +210,7 @@ def add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k):
         prob = (unigram_count[i] + k)
         base = (unigram_total_count * 1.0 + total_word_type * k * 1.0)
         prob_unigram[i] = prob/base
+    # print("--- add_plus_k_smoothing_unigram %s seconds ---" % (time.time() - start_time))
     return prob_unigram
 
 def add_plus_k_smoothing_bigram(bigram_count, unigram_count, k):
@@ -212,9 +220,10 @@ def add_plus_k_smoothing_bigram(bigram_count, unigram_count, k):
     for i in bigram_count:
         prob = (bigram_count[i] + k) / (unigram_count[i[0]] * 1.0+ total_word_type * k * 1.0)
         prob_bigram[i] = prob
+    # print("--- add_plus_k_smoothing_bigram %s seconds ---" % (time.time() - start_time))
     return prob_bigram
 
-def evaluate_dev_model_bigram(prob_bigram_smooth, filename):
+def evaluate_dev_model_bigram(prob_bigram_smooth, unigram_count, k, filename):
     f = open(filename, 'r')
 
     corpus = ["<s>"]
@@ -224,52 +233,65 @@ def evaluate_dev_model_bigram(prob_bigram_smooth, filename):
 
     running_log_prob = 0
     perplexity = 0
+    len_bigram = len(corpus)
 
-    for t in range(len(corpus)):
-        if t > 1:
-            tup = (corpus[t - 1], corpus[t])
-            #print "output"
-            #print tup
-            if tup in prob_bigram_smooth:
-                running_log_prob += math.log(prob_bigram_smooth[tup])
-                perplexity -= math.log(prob_bigram_smooth[tup])
-                continue
+    for t in range(1, len(corpus)):
+        tup = (corpus[t - 1], corpus[t])
 
-            tup = ("<unk>", corpus[t])
-            if tup in prob_bigram_smooth:
-                running_log_prob += math.log(prob_bigram_smooth[tup])
-                perplexity -= math.log(prob_bigram_smooth[tup])
-                continue
+        unseen_prob = 0
 
-            tup = (corpus[t - 1], "<unk>")
-            if tup in prob_bigram_smooth:
-                running_log_prob += math.log(prob_bigram_smooth[tup])
-                perplexity -= math.log(prob_bigram_smooth[tup])
-                continue
+        # first step; figure out if we are dealing with UNK or UNSEEN
+        # we do this by checking the t-1 element; if it's in our unigram corpus, then it's UNSEEN otherwise, UNK
+        is_unseen = False
+        if (corpus[t - 1] in unigram_count and corpus[t] in unigram_count):
+            is_unseen = True
+            unseen_prob = k / (unigram_count[corpus[t - 1]] * 1.0 + len_bigram * 1.0)
 
-            tup = ("<unk>", "<unk>")
-            running_log_prob += math.log(prob_bigram_smooth[tup])
-            perplexity -= math.log(prob_bigram_smooth[tup])
+        if tup in prob_bigram_smooth:
+            running_log_prob -= math.log(prob_bigram_smooth[tup])
+            # perplexity -= math.log(prob_bigram_smooth[tup])
+            continue
 
-    return running_log_prob, math.log(perplexity/len(corpus))
+        # not found; if it's merely unseen, then add the basic probability
+        if is_unseen:
+            running_log_prob -= math.log(unseen_prob)
+            # perplexity -= math.log(prob_bigram_smooth[tup])
+
+        tup = ("<unk>", corpus[t])
+        if tup in prob_bigram_smooth:
+            running_log_prob -= math.log(prob_bigram_smooth[tup])
+            # perplexity -= math.log(prob_bigram_smooth[tup])
+            continue
+
+        tup = (corpus[t - 1], "<unk>")
+        if tup in prob_bigram_smooth:
+            running_log_prob -= math.log(prob_bigram_smooth[tup])
+            # perplexity -= math.log(prob_bigram_smooth[tup])
+            continue
+
+        tup = ("<unk>", "<unk>")
+        running_log_prob -= math.log(prob_bigram_smooth[tup])
+        # perplexity -= math.log(prob_bigram_smooth[tup])
+
+    # print("--- evaluate_dev_model_bigram %s seconds ---" % (time.time() - start_time))
+    return running_log_prob, math.log(running_log_prob/len(corpus))
 
 def calculate_k_on_corpus(bigram_count, unigram_count):
-    k_arr = [0.0001, 0.001, 0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1, 3, 5]
+    k_arr = [0.0001, 0.001, 0.005, 0.0009, 0.01, 0.011, 0.013, 0.015, 0.025, 0.045, 0.1, 1, 5]
     k_val = {}
     # k_best = []
     for k in k_arr:
         # prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k)
         prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, k)
-        evaluated_prob, perplexity = evaluate_dev_model_bigram(prob_bigram_smooth, pos_val)
+        evaluated_prob, perplexity = evaluate_dev_model_bigram(prob_bigram_smooth, unigram_count, k, pos_val)
 
         k_val[k] = (evaluated_prob, perplexity)
+    # print("--- calculate_k_on_corpus %s seconds ---" % (time.time() - start_time))
     return k_val
-
-start_time = time.time()
 
 print "*"*80
 define_unk(unigram_count, bigram_count, next_words)
-add_zero_prob_words(unigram_count, bigram_count)
+#add_zero_prob_words(unigram_count, bigram_count)
 
 prob_unigram = unigram(unigram_count, unigram_total_count)
 prob_bigram = bigram(bigram_count, unigram_count)
@@ -286,19 +308,19 @@ print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_s
 # next, do smoothing
 k_val = calculate_k_on_corpus(bigram_count, unigram_count)
 
-k_max = None
-k_max_k = None
+k_min = None
+k_min_k = None
 k_min_perpl = None
 k_min_perpl_k = None
 
 for x in k_val:
-    if k_max is None or k_max < k_val[x][0]:
-        k_max = k_val[x][0]
-        k_max_k = x
-    if k_min_perpl is None or k_min > k_val[x][1]:
-        k_min = k_val[x][1]
+    if k_min is None or k_min> k_val[x][0]:
+        k_min = k_val[x][0]
         k_min_k = x
-print "Unigram prob smoothed: %s %s, perpexity: %s %s" % (k_max, k_max_k, k_min, k_min_k)
+    if k_min_perpl is None or k_min_perpl > k_val[x][1]:
+        k_min_perpl = k_val[x][1]
+        k_min_perpl_k = x
+print "Unigram prob smoothed: %s %s, perpexity: %s %s" % (k_min, k_min_k, k_min_perpl, k_min_perpl_k)
 
 # count = 0
 #
