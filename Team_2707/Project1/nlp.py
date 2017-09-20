@@ -19,7 +19,7 @@ def clean_data_and_split(line, add_start_end_tokens):
     line = line.replace('"', " ")
     line = line.replace('.', " ")
     line = line.replace('\n', " ")
-    temp.extend(line.split(" "))
+    temp.extend(line.split())
     if add_start_end_tokens:
         temp.append("</s>")
     while '' in temp:
@@ -128,13 +128,12 @@ cur_dir = os.path.abspath(os.path.curdir)
 train_dir =cur_dir + '\\SentimentDataset\\Train\\'
 dev_dir =cur_dir + '\\SentimentDataset\\Dev\\'
 
-pos = train_dir + "pos.txt"
-neg = train_dir + "neg.txt"
+pos_train = train_dir + "pos.txt"
+neg_train = train_dir + "neg.txt"
 
 pos_val = dev_dir + "pos.txt"
 neg_val = dev_dir + "neg.txt"
 
-unigram_count, bigram_count, unigram_total_count, next_words = add_start_end_tokens(pos)
 # prob_unigram = unigram(unigram_count, unigram_total_count)
 # prob_bigram = bigram(bigram_count, unigram_count)
 # unigram_sentence = gen_unigram_sentence(10, prob_unigram)
@@ -276,51 +275,62 @@ def evaluate_dev_model_bigram(prob_bigram_smooth, unigram_count, k, filename):
     # print("--- evaluate_dev_model_bigram %s seconds ---" % (time.time() - start_time))
     return running_log_prob, math.log(running_log_prob/len(corpus))
 
-def calculate_k_on_corpus(bigram_count, unigram_count):
-    k_arr = [0.0001, 0.001, 0.005, 0.0009, 0.01, 0.011, 0.013, 0.015, 0.025, 0.045, 0.1, 1, 5]
+def calculate_k_on_corpus(bigram_count, unigram_count, datasource):
+    k_arr = [0.0001, 0.001, 0.005, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.015, 0.025, 0.045, 0.1, 1, 5]
     k_val = {}
     # k_best = []
     for k in k_arr:
         # prob_unigram_smooth = add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k)
         prob_bigram_smooth = add_plus_k_smoothing_bigram(bigram_count, unigram_count, k)
-        evaluated_prob, perplexity = evaluate_dev_model_bigram(prob_bigram_smooth, unigram_count, k, pos_val)
+        evaluated_prob, perplexity = evaluate_dev_model_bigram(prob_bigram_smooth, unigram_count, k, datasource)
 
         k_val[k] = (evaluated_prob, perplexity)
     # print("--- calculate_k_on_corpus %s seconds ---" % (time.time() - start_time))
     return k_val
 
-print "*"*80
-define_unk(unigram_count, bigram_count, next_words)
-#add_zero_prob_words(unigram_count, bigram_count)
+def test_on_corpus(type):
 
-prob_unigram = unigram(unigram_count, unigram_total_count)
-prob_bigram = bigram(bigram_count, unigram_count)
-unigram_sentence = gen_unigram_sentence(10, prob_unigram)
-print "Unigram generated sentence:\t%s" % (" ".join(unigram_sentence))
+    train = pos_train
+    validation = pos_val
+    if type is 'neg':
+        train = neg_train
+        validation = neg_val
 
-bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words)
-print "Bigram generated sentence:\t%s" % (" ".join(bigram_sentence))
+    unigram_count, bigram_count, unigram_total_count, next_words = add_start_end_tokens(train)
+    print "*"*80
+    define_unk(unigram_count, bigram_count, next_words)
+    #add_zero_prob_words(unigram_count, bigram_count)
 
-seed = "simply radiates star-power potential"
-bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words, seed=seed)
-print "Bigram generated sentence with seed[%s] :\t%s" % (seed, " ".join(bigram_sentence))
+    prob_unigram = unigram(unigram_count, unigram_total_count)
+    prob_bigram = bigram(bigram_count, unigram_count)
+    unigram_sentence = gen_unigram_sentence(10, prob_unigram)
+    print "%s: Unigram generated sentence:\t%s" % (type, " ".join(unigram_sentence))
 
-# next, do smoothing
-k_val = calculate_k_on_corpus(bigram_count, unigram_count)
+    bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words)
+    print "%s: Bigram generated sentence:\t%s" % (type, " ".join(bigram_sentence))
 
-k_min = None
-k_min_k = None
-k_min_perpl = None
-k_min_perpl_k = None
+    seed = "simply radiates star-power potential"
+    bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words, seed=seed)
+    print "%s: Bigram generated sentence with seed[%s] :\t%s" % (type, seed, " ".join(bigram_sentence))
 
-for x in k_val:
-    if k_min is None or k_min> k_val[x][0]:
-        k_min = k_val[x][0]
-        k_min_k = x
-    if k_min_perpl is None or k_min_perpl > k_val[x][1]:
-        k_min_perpl = k_val[x][1]
-        k_min_perpl_k = x
-print "Unigram prob smoothed: %s %s, perpexity: %s %s" % (k_min, k_min_k, k_min_perpl, k_min_perpl_k)
+    # next, do smoothing
+    k_val = calculate_k_on_corpus(bigram_count, unigram_count, validation)
+
+    k_min = None
+    k_min_k = None
+    k_min_perpl = None
+    k_min_perpl_k = None
+
+    for x in k_val:
+        # print x, k_val[x]
+
+        if k_min is None or k_min> k_val[x][0]:
+            k_min = k_val[x][0]
+            k_min_k = x
+        if k_min_perpl is None or k_min_perpl > k_val[x][1]:
+            k_min_perpl = k_val[x][1]
+            k_min_perpl_k = x
+    print "%s: Unigram prob smoothed: %s %s, perpexity: %s %s" % (type, k_min, k_min_k, k_min_perpl, k_min_perpl_k)
 
 # count = 0
 #
@@ -329,5 +339,8 @@ print "Unigram prob smoothed: %s %s, perpexity: %s %s" % (k_min, k_min_k, k_min_
 #     count+=1
 #     if count is 10:
 #         break
+
+test_on_corpus('pos')
+test_on_corpus('neg')
 
 print("--- %s seconds ---" % (time.time() - start_time))
