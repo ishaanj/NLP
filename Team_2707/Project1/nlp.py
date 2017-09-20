@@ -330,7 +330,7 @@ def test_on_corpus(type):
         if k_min_perpl is None or k_min_perpl > k_val[x][1]:
             k_min_perpl = k_val[x][1]
             k_min_perpl_k = x
-    print "%s: Unigram prob smoothed: %s %s, perpexity: %s %s" % (type, k_min, k_min_k, k_min_perpl, k_min_perpl_k)
+    print "%s: Bigram prob smoothed: %s %s, perpexity: %s %s" % (type, k_min, k_min_k, k_min_perpl, k_min_perpl_k)
 
 # count = 0
 #
