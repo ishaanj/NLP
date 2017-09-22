@@ -151,13 +151,16 @@ test_data = test_dir + "test.txt"
 
 def define_unk(unigram_count, bigram_count, next_words):
     count = 0
+    total_count = 0
     unk_word = set()
     tempKeys = list(unigram_count.keys())
     for i in tempKeys:
-        if unigram_count[i] == 1:
+        #only add every third entry to unknown; this reduces the number of unknown records, and hopefully increases model performance
+        if unigram_count[i] == 1 and total_count%1 == 0:
             unk_word.add(i)
             count+=1
             del unigram_count[i]
+        total_count+=1
     unigram_count['<unk>'] = count
 
     tempKeys = list(bigram_count.keys())
@@ -197,11 +200,11 @@ def define_unk(unigram_count, bigram_count, next_words):
             del next_words[word]
     # print("--- define_unk %s seconds ---" % (time.time() - start_time))
     pass
-def add_zero_prob_words(unigram_count, bigram_count):
-    for word1 in unigram_count:
-        for word2 in unigram_count:
-            if (word1,word2) not in bigram_count:
-                bigram_count[(word1,word2)] = 0
+# def add_zero_prob_words(unigram_count, bigram_count):
+#     for word1 in unigram_count:
+#         for word2 in unigram_count:
+#             if (word1,word2) not in bigram_count:
+#                 bigram_count[(word1,word2)] = 0
     # print("--- add_zero_prob_words %s seconds ---" % (time.time() - start_time))
 
 def add_plus_k_smoothing_unigram(unigram_count, unigram_total_count, k):
@@ -220,7 +223,7 @@ def add_plus_k_smoothing_bigram(bigram_count, unigram_count, k):
     #add +k to all counts
     prob_bigram = {}
     for i in bigram_count:
-        prob = (bigram_count[i] + k) / (unigram_count[i[0]] * 1.0+ total_word_type * k * 1.0)
+        prob = (bigram_count[i] + k) / (unigram_count[i[0]] * 1.0 + total_word_type * k * 1.0)
         prob_bigram[i] = prob
     # print("--- add_plus_k_smoothing_bigram %s seconds ---" % (time.time() - start_time))
     return prob_bigram
@@ -236,8 +239,6 @@ def evaluate_dev_model_unigram(prob_unigram_smooth, unigram_count, k, filename):
     f.close()
 
     running_log_prob = 0
-    perplexity = 0
-    len_bigram = len(corpus)
 
     for token in corpus:
         if token in prob_unigram_smooth:
@@ -293,13 +294,17 @@ def evaluate_dev_model_bigram(prob_bigram_smooth, unigram_count, k, filename):
             continue
 
         tup = ("<unk>", "<unk>")
-        running_log_prob -= math.log(prob_bigram_smooth[tup])
+        if tup in prob_bigram_smooth:
+            running_log_prob -= math.log(prob_bigram_smooth[tup])
+        else:
+            #if we've never seen the double unk, use unseen
+            running_log_prob -= math.log(unseen_prob)
 
     # print("--- evaluate_dev_model_bigram %s seconds ---" % (time.time() - start_time))
     return running_log_prob, math.log(running_log_prob/len(corpus))
 
 def calculate_k_on_corpus(bigram_count, unigram_count, unigram_total_count, datasource):
-    k_arr = [0.0001, 0.001, 0.01, 0.1, 1]
+    k_arr = [0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
     # print k_arr
     k_val_unigram = {}
     k_val_bigram = {}
@@ -348,11 +353,11 @@ def calculate_k_on_corpus(bigram_count, unigram_count, unigram_total_count, data
     # print("--- calculate_k_on_corpus %s seconds ---" % (time.time() - start_time))
     return k_val_unigram, k_val_bigram
 
-def test_on_corpus(type):
+def test_on_corpus(run_type):
 
     train = pos_train
     validation = pos_val
-    if type is 'neg':
+    if run_type is 'neg':
         train = neg_train
         validation = neg_val
 
@@ -364,14 +369,14 @@ def test_on_corpus(type):
     prob_unigram = unigram(unigram_count, unigram_total_count)
     prob_bigram = bigram(bigram_count, unigram_count)
     unigram_sentence = gen_unigram_sentence(10, prob_unigram)
-    print "%s: Unigram generated sentence:\t%s" % (type, " ".join(unigram_sentence))
+    print "%s: Unigram generated sentence:\t%s" % (run_type, " ".join(unigram_sentence))
 
     bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words)
-    print "%s: Bigram generated sentence:\t%s" % (type, " ".join(bigram_sentence))
+    print "%s: Bigram generated sentence:\t%s" % (run_type, " ".join(bigram_sentence))
 
     seed = "simply radiates star-power potential"
     bigram_sentence = gen_bigram_sentence(10, prob_bigram, next_words, seed=seed)
-    print "%s: Bigram generated sentence with seed[%s] :\t%s" % (type, seed, " ".join(bigram_sentence))
+    print "%s: Bigram generated sentence with seed[%s] :\t%s" % (run_type, seed, " ".join(bigram_sentence))
 
     # next, do smoothing
     k_val_unigram, k_val_bigram = calculate_k_on_corpus(bigram_count, unigram_count, unigram_total_count, validation)
@@ -397,7 +402,7 @@ def test_on_corpus(type):
         if k_min_perpl[1] is None or k_min_perpl[1] > k_val_bigram[x][1]:
             k_min_perpl[1] = k_val_bigram[x][1]
             k_min_perpl_k[1] = x
-    print "%s: Bigram prob smoothed: %s %s, perpexity: %s %s" % (type, k_min, k_min_k, k_min_perpl, k_min_perpl_k)
+    print "%s: Bigram prob smoothed: %s %s, perpexity: %s %s" % (run_type, k_min, k_min_k, k_min_perpl, k_min_perpl_k)
 
     return k_min_k
 
@@ -407,14 +412,14 @@ def get_prob_of_unigram(item, prob_unigram_smooth):
     else:
         return -math.log(prob_unigram_smooth['<unk>'])
 
-def get_prob_of_bigram(first, second, len_item, prob_bigram_smooth, unigram_count, k):
+def get_prob_of_bigram(first, second, len_split, prob_bigram_smooth, unigram_count, k):
     tup = (first, second)
     # first step; figure out if we are dealing with UNK or UNSEEN
     # we do this by checking the t-1 element; if it's in our unigram corpus, then it's UNSEEN otherwise, UNK
     is_unseen = False
     if (first in unigram_count and second in unigram_count):
         is_unseen = True
-        unseen_prob = k / (unigram_count[first] * 1.0 + len_item * 1.0)
+        unseen_prob = k / (unigram_count[first] * 1.0 + len_split * 1.0 * k)
 
     if tup in prob_bigram_smooth:
         return -math.log(prob_bigram_smooth[tup])
@@ -449,54 +454,79 @@ def predict_sentiment(k_pos, k_neg):
     neg_prob_unigram_smooth = add_plus_k_smoothing_unigram(neg_unigram_count, neg_unigram_total_count, k_neg[0])
     neg_prob_bigram_smooth = add_plus_k_smoothing_bigram(neg_bigram_count, neg_unigram_count, k_neg[1])
 
-    sum_pos = 0
-    sum_neg = 0
+    sum_pos_uni = 0
+    sum_pos_bi = 0
+    sum_neg_uni = 0
+    sum_neg_bi = 0
     #evaluate on pos validation data first
     f = open(pos_val, 'r')
     for idx,line in enumerate(f.readlines()):
         split = clean_data_and_split(line, True)
 
-        pos_evaluated_prob = 0
-        neg_evaluated_prob = 0
+        pos_evaluated_prob_uni = 0
+        pos_evaluated_prob_bi = 0
+        neg_evaluated_prob_uni = 0
+        neg_evaluated_prob_bi = 0
 
         len_split = len(split)
 
         for idx2, item in enumerate(split):
+            pos_evaluated_prob_uni += get_prob_of_unigram(item, pos_prob_unigram_smooth)
+            neg_evaluated_prob_uni += get_prob_of_unigram(item, neg_prob_unigram_smooth)
             if idx2 > 1:
-                pos_evaluated_prob += get_prob_of_bigram(split[idx2 - 1], split[idx2], len_split,
+                pos_evaluated_prob_bi += get_prob_of_bigram(split[idx2 - 1], split[idx2], len(split),
                                                          pos_prob_bigram_smooth, pos_unigram_count, k_pos[1])
-                neg_evaluated_prob += get_prob_of_bigram(split[idx2 - 1], split[idx2], len_split,
+                neg_evaluated_prob_bi += get_prob_of_bigram(split[idx2 - 1], split[idx2], len(split),
                                                          neg_prob_bigram_smooth, neg_unigram_count, k_neg[1])
-        if pos_evaluated_prob > neg_evaluated_prob:
-            sum_pos+=1
+        #evaluate final output on perplexity
+        if math.exp(pos_evaluated_prob_uni/len(split)) > math.exp(neg_evaluated_prob_uni/len(split)):
+            sum_pos_uni+=1
         else:
-            sum_neg+=1
-    print "Expected all sum_pos, but got %d sum_pos and %d sum_neg" % (sum_pos, sum_neg)
+            sum_neg_uni+=1
+
+        if math.exp(pos_evaluated_prob_bi/len(split)) > math.exp(neg_evaluated_prob_bi/len(split)):
+            sum_pos_bi += 1
+        else:
+            sum_neg_bi += 1
+    print "Expected all sum_pos_uni, but got %d sum_pos_uni and %d sum_neg_uni" % (sum_pos_uni, sum_neg_uni)
+    print "Expected all sum_pos_bi, but got %d sum_pos_bi and %d sum_neg_bi" % (sum_pos_bi, sum_neg_bi)
     f.close()
 
-    sum_pos = 0
-    sum_neg = 0
-    # evaluate on pos validation data first
+    sum_pos_uni = 0
+    sum_pos_bi = 0
+    sum_neg_uni = 0
+    sum_neg_bi = 0
+    # evaluate on neg validation data first
     f = open(neg_val, 'r')
-    for idx, line in enumerate(f.readlines()):
+    for idx,line in enumerate(f.readlines()):
         split = clean_data_and_split(line, True)
 
-        pos_evaluated_prob = 0
-        neg_evaluated_prob = 0
+        pos_evaluated_prob_uni = 0
+        pos_evaluated_prob_bi = 0
+        neg_evaluated_prob_uni = 0
+        neg_evaluated_prob_bi = 0
 
         len_split = len(split)
 
         for idx2, item in enumerate(split):
+            pos_evaluated_prob_uni += get_prob_of_unigram(item, pos_prob_unigram_smooth)
+            neg_evaluated_prob_uni += get_prob_of_unigram(item, neg_prob_unigram_smooth)
             if idx2 > 1:
-                pos_evaluated_prob += get_prob_of_bigram(split[idx2 - 1], split[idx2], len_split,
+                pos_evaluated_prob_bi += get_prob_of_bigram(split[idx2 - 1], split[idx2], len_split,
                                                          pos_prob_bigram_smooth, pos_unigram_count, k_pos[1])
-                neg_evaluated_prob += get_prob_of_bigram(split[idx2 - 1], split[idx2], len_split,
+                neg_evaluated_prob_bi += get_prob_of_bigram(split[idx2 - 1], split[idx2], len_split,
                                                          neg_prob_bigram_smooth, neg_unigram_count, k_neg[1])
-        if pos_evaluated_prob > neg_evaluated_prob:
-            sum_pos += 1
+        if math.exp(pos_evaluated_prob_uni/len(split)) > math.exp(neg_evaluated_prob_uni/len(split)):
+            sum_pos_uni+=1
         else:
-            sum_neg += 1
-    print "Expected all sum_neg, but got %d sum_pos and %d sum_neg" % (sum_pos, sum_neg)
+            sum_neg_uni+=1
+
+        if math.exp(pos_evaluated_prob_bi/len(split)) > math.exp(neg_evaluated_prob_bi / len(split)):
+            sum_pos_bi += 1
+        else:
+            sum_neg_bi += 1
+    print "Expected all sum_neg_uni, but got %d sum_pos_uni and %d sum_neg_uni" % (sum_pos_uni, sum_neg_uni)
+    print "Expected all sum_neg_bi, but got %d sum_pos_bi and %d sum_neg_bi" % (sum_pos_bi, sum_neg_bi)
     f.close()
 
     #first, ingest all test data
@@ -514,22 +544,24 @@ def predict_sentiment(k_pos, k_neg):
 
         #first, do unigram evaluation on the line
         for idx2,item in enumerate(split):
-            # pos_evaluated_prob += get_prob_of_unigram(item, pos_prob_unigram_smooth)
-            # neg_evaluated_prob += get_prob_of_unigram(item, neg_prob_unigram_smooth)
+            pos_evaluated_prob += get_prob_of_unigram(item, pos_prob_unigram_smooth)
+            neg_evaluated_prob += get_prob_of_unigram(item, neg_prob_unigram_smooth)
 
             #then do for bigram
-            if idx2 > 1:
-                pos_evaluated_prob += get_prob_of_bigram(split[idx2-1], split[idx2], len_split, pos_prob_bigram_smooth, pos_unigram_count, k_pos[1])
-                neg_evaluated_prob += get_prob_of_bigram(split[idx2-1], split[idx2], len_split, neg_prob_bigram_smooth, neg_unigram_count, k_neg[1])
+            # if idx2 > 1:
+            #     pos_evaluated_prob += \
+            #         get_prob_of_bigram(split[idx2-1], split[idx2], len_split, pos_prob_bigram_smooth, pos_unigram_count, k_pos[1])
+            #     neg_evaluated_prob += \
+            #         get_prob_of_bigram(split[idx2-1], split[idx2], len_split, neg_prob_bigram_smooth, neg_unigram_count, k_neg[1])
 
 
         evaluated = {}
         evaluated['Id'] = idx
-        if pos_evaluated_prob > neg_evaluated_prob:
+        if pos_evaluated_prob < neg_evaluated_prob:
             evaluated['Prediction'] = 1
         else:
             evaluated['Prediction'] = 0
-            output.append(evaluated)
+        output.append(evaluated)
     print "*" * 80
 
     with open('sentiment_output_bigram.csv', 'wb+') as f:
@@ -553,5 +585,6 @@ k_pos = test_on_corpus('pos')
 k_neg = test_on_corpus('neg')
 
 predict_sentiment(k_pos, k_neg)
+# predict_sentiment([1, 1], [1, 1])
 
 print("--- %s seconds ---" % (time.time() - start_time))
