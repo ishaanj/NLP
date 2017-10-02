@@ -1,0 +1,6 @@
+Description of Baseline System:
+Our approach to the baseline system is naïve and follows the suggestion in the project description. We go through the training examples, and memorize the Named Entity tokens for all the words. When we come across the same word in the test set, we assign the same Named Entity to it, as the one we saw in the training data. 
+Probability of assigning a NE for a given word with a given POS tag. 
+Word is known and the POS tag is also known
+Word is known, but the POS tag for this word is not known 
+Word is not known
