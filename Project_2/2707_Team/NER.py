@@ -37,13 +37,13 @@ def test_me(filename, output_csv):
 
         for j in range(len(line_tokens)):
             if line_tokens[j] in ALL_TOKENS:
-                if "B-PER" == ALL_TOKENS[line_tokens[j]]:
+                if "B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]:
                     PER = PER + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                if "B-LOC" == ALL_TOKENS[line_tokens[j]]:
+                if "B-LOC" == ALL_TOKENS[line_tokens[j]] or "I-LOC" == ALL_TOKENS[line_tokens[j]]:
                     LOC = LOC + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                if "B-ORG" in ALL_TOKENS[line_tokens[j]]:
+                if "B-ORG" in ALL_TOKENS[line_tokens[j]] or "I-ORG" in ALL_TOKENS[line_tokens[j]]:
                     ORG = ORG + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                if "B-MISC" in ALL_TOKENS[line_tokens[j]]:
+                if "B-MISC" in ALL_TOKENS[line_tokens[j]] or "I-MISC" in ALL_TOKENS[line_tokens[j]]:
                     MISC = MISC + str(token_number[j]) + "-" + str(token_number[j]) + " "
             else:
                 O = O + str(token_number[j]) + "-" + str(token_number[j]) + " "
@@ -56,7 +56,6 @@ def test_me(filename, output_csv):
     op_csv.write(ORG + "\n")
     op_csv.write(MISC + "\n")
     op_csv.write(O + "\n")
-
     op_csv.close()
 
 test_me('test.txt', "output.csv")
