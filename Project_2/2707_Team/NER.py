@@ -27,7 +27,7 @@ def test_me(filename, output_csv):
     PER = "PER,"
     LOC = "LOC,"
     ORG = "ORG,"
-    MISC = "MSC,"
+    MISC = "MISC,"
     O = "O,"
     all_lines = f.readlines()
     for i in range(int(len(all_lines)/3)):
@@ -48,14 +48,14 @@ def test_me(filename, output_csv):
             else:
                 O = O + str(token_number[j]) + "-" + str(token_number[j]) + " "
 
-    op_csv = open(output_csv,'w')
+    op_csv = open(output_csv,'w+')
     st = "Type,Prediction"
     op_csv.write(st + "\n")
     op_csv.write(PER + "\n")
     op_csv.write(LOC + "\n")
     op_csv.write(ORG + "\n")
     op_csv.write(MISC + "\n")
-    op_csv.write(O + "\n")
+    # op_csv.write(O + "\n")
     op_csv.close()
 
 test_me('test.txt', "output.csv")
