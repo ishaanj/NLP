@@ -34,19 +34,43 @@ def test_me(filename, output_csv):
         line_tokens = all_lines[3*i].split()
         line_pos = all_lines[3*i + 1].split()
         token_number = all_lines[3*i + 2].split()
-
-        for j in range(len(line_tokens)):
+        j = 0
+        while(j<len(line_tokens)):
             if line_tokens[j] in ALL_TOKENS:
-                if "B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]:
-                    PER = PER + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                if("B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]):
+                    first = j
+                    while j<len(line_tokens) and line_tokens[j] in ALL_TOKENS and ("B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]):
+                        j += 1
+
+                    PER = PER + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+                    continue
                 if "B-LOC" == ALL_TOKENS[line_tokens[j]] or "I-LOC" == ALL_TOKENS[line_tokens[j]]:
-                    LOC = LOC + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                    first = j
+                    while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
+                            "B-LOC" == ALL_TOKENS[line_tokens[j]] or "I-LOC" == ALL_TOKENS[line_tokens[j]]):
+                        j += 1
+
+                    LOC = LOC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    continue
                 if "B-ORG" in ALL_TOKENS[line_tokens[j]] or "I-ORG" in ALL_TOKENS[line_tokens[j]]:
-                    ORG = ORG + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                    first = j
+                    while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
+                                    "B-ORG" == ALL_TOKENS[line_tokens[j]] or "I-ORG" == ALL_TOKENS[line_tokens[j]]):
+                        j += 1
+
+                    ORG = ORG + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    continue
                 if "B-MISC" in ALL_TOKENS[line_tokens[j]] or "I-MISC" in ALL_TOKENS[line_tokens[j]]:
-                    MISC = MISC + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                    first = j
+                    while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
+                                    "B-MISC" == ALL_TOKENS[line_tokens[j]] or "I-MISC" == ALL_TOKENS[line_tokens[j]]):
+                        j += 1
+
+                    MISC = MISC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    continue
             else:
                 O = O + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                j += 1
 
     op_csv = open(output_csv,'w+')
     st = "Type,Prediction"
