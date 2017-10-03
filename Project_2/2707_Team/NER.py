@@ -1,4 +1,10 @@
-def tokenize(filename):
+def tokenize(filename="train.txt"):
+    """
+    Tokenizes the train file and returns
+    word : NER type dictionary
+    :param filename: train.txt
+    :return: all_tokens
+    """
     f = open(filename, 'r')
     all_tokens = {}
     i_tokens = {}
@@ -17,12 +23,14 @@ def tokenize(filename):
     f.close()
     return all_tokens
 
-ALL_TOKENS = tokenize("train.txt")
 
-"""
-Now run on test data
-"""
-def test_me(filename, output_csv):
+def predict_NER(filename="test.txt", output_csv="output.csv"):
+    """
+    Predicts NER for the test data
+    :param filename: test.txt
+    :param output_csv: output the file in the  required format
+    :return: None
+    """
     f = open(filename, 'r')
     PER = "PER,"
     LOC = "LOC,"
@@ -82,4 +90,7 @@ def test_me(filename, output_csv):
     # op_csv.write(O + "\n")
     op_csv.close()
 
-test_me('test.txt', "output.csv")
+
+# Main calls
+ALL_TOKENS = tokenize("train.txt")
+predict_NER('test.txt', "output.csv")
