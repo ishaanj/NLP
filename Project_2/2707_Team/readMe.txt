@@ -6,4 +6,4 @@ The file is placed in the same level as Test and Train Data.
 -test.txt
 -NER.py
 
-Run NER.py with the python 3 compiler
+Run NER.py with the python 3 interpreter
