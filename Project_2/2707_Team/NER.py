@@ -6,7 +6,7 @@
 
 
 import nltk
-import  numpy as np
+import numpy as np
 def tokenize(filename="train.txt"):
     """
     Tokenizes the train file and returns
@@ -36,7 +36,7 @@ def tokenize(filename="train.txt"):
                     all_tokens[line_tokens[j]] = line_ner[j]
             #leaving above unchanged and adding new code here
             wordType = line_tokens[j]
-            NER = line_ner[j]
+            NER = line_ner[j] if(line_ner[j] != 'O') else line_ner[j]
 
             if((wordType,NER) not in count_wordType_NER):
                 count_wordType_NER[(wordType,NER)] = 1
@@ -46,7 +46,7 @@ def tokenize(filename="train.txt"):
                 prevNER = "START"
                 count_NER[prevNER] += 1 #already initialized to zero above
             else:
-                prevNER = line_ner[j - 1]
+                prevNER = line_ner[j - 1] if(line_ner[j-1] != 'O') else line_ner[j-1]
             if ((prevNER, NER) not in count_NER_NER):
                 count_NER_NER[(prevNER, NER)] = 1
             else:
@@ -54,7 +54,7 @@ def tokenize(filename="train.txt"):
             if(NER not in count_NER):
                 count_NER[NER] = 1
             else:
-                count_NER += 1
+                count_NER[NER] += 1
 
     f.close()
     return all_tokens, count_NER, count_NER_NER, count_wordType_NER
@@ -71,7 +71,8 @@ def HMM(line_tokens):
     """
     hmatrix = []
     ptrmatrix = []
-    NER_Types = ["PER","LOC","ORG","MISC", "O"]
+    #NER_Types = ["PER","LOC","ORG","MISC", "O"]
+    NER_Types = ["I-PER","I-LOC","I-ORG","I-MISC","B-PER","B-LOC","B-ORG","B-MISC", "O"]
     word_types = len(ALL_TOKENS)
     ner = 5
     k = 1
@@ -113,8 +114,12 @@ def HMM(line_tokens):
         ptrmatrix.append(ptr_row)
 
     result = []
-    idx = np.argmax(hmatrix[len(line_tokens)-1])
-    bptr = ptrmatrix[len(line_tokens)-1][idx]
+    # idx = np.argmax(hmatrix[len(line_tokens)-1])
+    # bptr = ptrmatrix[len(line_tokens)-2][idx]
+    idx = np.argmax(hmatrix[-1])
+    if(len(ptrmatrix)>0):
+        bptr = ptrmatrix[-1][idx]
+
     result.append(NER_Types[idx])
     for p in range(len(line_tokens)-2,0,-1):
         result.append(NER_Types[bptr])
@@ -146,44 +151,108 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         line_tokens = all_lines[3*i].split()
         line_pos = all_lines[3*i + 1].split()
         token_number = all_lines[3*i + 2].split()
+        #VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
+        VALID_TOKENS = set(["I-PER","I-LOC","I-ORG","I-MISC","B-PER","B-LOC","B-ORG","B-MISC"])
         tagged_tokens = HMM(line_tokens)
         j = 0
-        while(j<len(line_tokens)):
-            if line_tokens[j] in ALL_TOKENS:
-                if("B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]):
+        #commenting this to rewrite the new version
+        # while(j<len(line_tokens)):
+        #     if line_tokens[j] in ALL_TOKENS:
+        #         if("B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]):
+        #             first = j
+        #             while j<len(line_tokens) and line_tokens[j] in ALL_TOKENS and ("B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]):
+        #                 j += 1
+        #
+        #             PER = PER + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+        #             continue
+        #         if "B-LOC" == ALL_TOKENS[line_tokens[j]] or "I-LOC" == ALL_TOKENS[line_tokens[j]]:
+        #             first = j
+        #             while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
+        #                     "B-LOC" == ALL_TOKENS[line_tokens[j]] or "I-LOC" == ALL_TOKENS[line_tokens[j]]):
+        #                 j += 1
+        #
+        #             LOC = LOC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+        #             continue
+        #         if "B-ORG" in ALL_TOKENS[line_tokens[j]] or "I-ORG" in ALL_TOKENS[line_tokens[j]]:
+        #             first = j
+        #             while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
+        #                             "B-ORG" == ALL_TOKENS[line_tokens[j]] or "I-ORG" == ALL_TOKENS[line_tokens[j]]):
+        #                 j += 1
+        #
+        #             ORG = ORG + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+        #             continue
+        #         if "B-MISC" in ALL_TOKENS[line_tokens[j]] or "I-MISC" in ALL_TOKENS[line_tokens[j]]:
+        #             first = j
+        #             while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
+        #                             "B-MISC" == ALL_TOKENS[line_tokens[j]] or "I-MISC" == ALL_TOKENS[line_tokens[j]]):
+        #                 j += 1
+        #
+        #             MISC = MISC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+        #             continue
+        #     else:
+        #         O = O + str(token_number[j]) + "-" + str(token_number[j]) + " "
+        #         j += 1
+
+        #New Version
+        while (j < len(tagged_tokens)):
+            if tagged_tokens[j] in VALID_TOKENS:
+                if (tagged_tokens[j] == 'B-PER'):
                     first = j
-                    while j<len(line_tokens) and line_tokens[j] in ALL_TOKENS and ("B-PER" == ALL_TOKENS[line_tokens[j]] or "I-PER" == ALL_TOKENS[line_tokens[j]]):
+                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                            tagged_tokens[j] == 'I-PER'):
                         j += 1
 
-                    PER = PER + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+                    PER = PER + str(token_number[first]) + "-" + str(token_number[j]) + " "
+                    j += 1
                     continue
-                if "B-LOC" == ALL_TOKENS[line_tokens[j]] or "I-LOC" == ALL_TOKENS[line_tokens[j]]:
-                    first = j
-                    while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
-                            "B-LOC" == ALL_TOKENS[line_tokens[j]] or "I-LOC" == ALL_TOKENS[line_tokens[j]]):
-                        j += 1
-
-                    LOC = LOC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                if(tagged_tokens[j] == 'I-PER'):
+                    PER = PER + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                    j += 1
                     continue
-                if "B-ORG" in ALL_TOKENS[line_tokens[j]] or "I-ORG" in ALL_TOKENS[line_tokens[j]]:
+                if tagged_tokens[j] == 'B-LOC':
                     first = j
-                    while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
-                                    "B-ORG" == ALL_TOKENS[line_tokens[j]] or "I-ORG" == ALL_TOKENS[line_tokens[j]]):
+                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                                    tagged_tokens[j] == 'I-LOC'):
                         j += 1
 
-                    ORG = ORG + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    LOC = LOC + str(token_number[first]) + "-" + str(token_number[j]) + " "
+                    j += 1
                     continue
-                if "B-MISC" in ALL_TOKENS[line_tokens[j]] or "I-MISC" in ALL_TOKENS[line_tokens[j]]:
+                if (tagged_tokens[j] == 'I-LOC'):
+                    LOC = LOC + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                    j += 1
+                    continue
+                if tagged_tokens[j] == 'B-ORG':
                     first = j
-                    while j < len(line_tokens) and line_tokens[j] in ALL_TOKENS and (
-                                    "B-MISC" == ALL_TOKENS[line_tokens[j]] or "I-MISC" == ALL_TOKENS[line_tokens[j]]):
+                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                                    tagged_tokens[j] == 'I-ORG'):
                         j += 1
 
-                    MISC = MISC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    ORG = ORG + str(token_number[first]) + "-" + str(token_number[j]) + " "
+                    j += 1
+                    continue
+                if (tagged_tokens[j] == 'I-ORG'):
+                    ORG = ORG + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                    j += 1
+                    continue
+                if tagged_tokens[j] == 'B-MISC':
+                    first = j
+                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                                    tagged_tokens[j] == 'I-MISC'):
+                        j += 1
+
+                    MISC = MISC + str(token_number[first]) + "-" + str(token_number[j]) + " "
+                    j+=1
+                    continue
+                if (tagged_tokens[j] == 'I-MISC'):
+                    MISC = MISC + str(token_number[j]) + "-" + str(token_number[j]) + " "
+                    j += 1
                     continue
             else:
-                O = O + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                j += 1
+                first = j
+                while j < len(tagged_tokens) and tagged_tokens[j] not in VALID_TOKENS:
+                    j += 1
+                O = O + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
 
     op_csv = open(output_csv,'w+')
     st = "Type,Prediction"
@@ -205,13 +274,13 @@ raw = f.read()
 
 tokens = nltk.word_tokenize(raw)
 
-#Create your bigrams
-#bgs = nltk.bigrams(tokens)
-ugs = nltk.ngrams(tokens,1)
-#tgs = nltk.trigrams(tokens)
-#fgs = nltk.ngrams(tokens,4)
-#compute frequency distribution for all the bigrams in the text
-fdist = nltk.FreqDist(ugs)
-#tdist = nltk.FreqDist(fgs)
-for k,v in fdist.items():
-    print(k,v)
+# #Create your bigrams
+# #bgs = nltk.bigrams(tokens)
+# ugs = nltk.ngrams(tokens,1)
+# #tgs = nltk.trigrams(tokens)
+# #fgs = nltk.ngrams(tokens,4)
+# #compute frequency distribution for all the bigrams in the text
+# fdist = nltk.FreqDist(ugs)
+# #tdist = nltk.FreqDist(fgs)
+# for k,v in fdist.items():
+#     print(k,v)
