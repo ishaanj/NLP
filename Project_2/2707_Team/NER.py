@@ -8,7 +8,7 @@
 import nltk
 import numpy as np
 import math
-def tokenize(filename="train.txt"):
+def tokenize(split, filename="train.txt"):
     """
     Tokenizes the train file and returns
     word : NER type dictionary
@@ -26,7 +26,7 @@ def tokenize(filename="train.txt"):
 
 
     all_lines = f.readlines()
-    for i in range(int(len(all_lines)/3)):
+    for i in range(int(len(all_lines)/3 * split)):
         line_tokens = all_lines[3*i].split()
         line_pos = all_lines[3*i+1].split()
         line_ner = all_lines[3*i+2].split()
@@ -61,7 +61,7 @@ def tokenize(filename="train.txt"):
     return all_tokens, count_NER, count_NER_NER, count_wordType_NER
 
 
-def HMM(line_tokens):
+def HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER):
     """
         Predicts NER for the test data sentence(line_tokens)
         Each row will have info about the i'th word in the sentence
@@ -76,7 +76,8 @@ def HMM(line_tokens):
     NER_Types = ["B-PER","I-PER","B-LOC","I-LOC","B-ORG","I-ORG","B-MISC","I-MISC", "O"]
     word_types = len(ALL_TOKENS)
     ner = 9
-    k = 0.012
+    # k = 0.26
+    k=0.26
 
     start_word = line_tokens[0]
     cur_row = []
@@ -136,8 +137,101 @@ def HMM(line_tokens):
 
     return result
 
+def validate_NER(filename="test.txt"):
+    """
+        Predicts NER for the test data
+        :param filename: test.txt
+        :param output_csv: output the file in the  required format
+        :return: None
+        """
 
+    f = open(filename, 'r')
+    CORRECT_PER = 0
+    CORRECT_ORG = 0
+    CORRECT_LOC = 0
+    CORRECT_MISC = 0
+    CORRECT_O = 0
+    INCORRECT_PER = 0
+    INCORRECT_ORG = 0
+    INCORRECT_LOC = 0
+    INCORRECT_MISC = 0
+    INCORRECT_O = 0
+    all_lines = f.readlines()
+    num_lines = len(all_lines) / 3
 
+    for i in range(int(0.8*num_lines), int(num_lines)):
+        line_tokens = all_lines[3 * i].split()
+        line_pos = all_lines[3 * i + 1].split()
+        ner_result = all_lines[3 * i + 2].split()
+
+        # VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
+        VALID_TOKENS = set(["B-PER", "B-LOC", "B-ORG", "B-MISC"])
+        tagged_tokens = HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER)
+        j = 1
+        # New Version
+        while (j < len(tagged_tokens)):
+            if tagged_tokens[j] in VALID_TOKENS:
+                if (tagged_tokens[j] == 'B-PER'):
+                    if ner_result[j] == 'B-PER':
+                        CORRECT_PER += 1
+                    else:
+                        INCORRECT_PER += 1
+
+                elif (tagged_tokens[j] == 'I-PER'):
+                    if ner_result[j] == 'I-PER':
+                        CORRECT_PER += 1
+                    else:
+                        INCORRECT_PER += 1
+
+                elif (tagged_tokens[j] == 'B-LOC'):
+                    if ner_result[j] == 'B-LOC':
+                        CORRECT_LOC += 1
+                    else:
+                        INCORRECT_LOC += 1
+
+                elif (tagged_tokens[j] == 'I-LOC'):
+                    if ner_result[j] == 'I-LOC':
+                        CORRECT_LOC += 1
+                    else:
+                        INCORRECT_LOC += 1
+
+                elif (tagged_tokens[j] == 'B-ORG'):
+                    if ner_result[j] == 'B-ORG':
+                        CORRECT_ORG += 1
+                    else:
+                        INCORRECT_ORG += 1
+
+                elif (tagged_tokens[j] == 'I-ORG'):
+                    if ner_result[j] == 'I-ORG':
+                        CORRECT_ORG += 1
+                    else:
+                        INCORRECT_ORG += 1
+
+                elif (tagged_tokens[j] == 'B-MISC'):
+                    if ner_result[j] == 'B-MISC':
+                        CORRECT_MISC += 1
+                    else:
+                        INCORRECT_MISC += 1
+
+                elif (tagged_tokens[j] == 'I-MISC'):
+                    if ner_result[j] == 'I-MISC':
+                        CORRECT_MISC += 1
+                    else:
+                        INCORRECT_MISC += 1
+                j += 1
+            else:
+                if ner_result[j] == 'O':
+                    CORRECT_O += 1
+                else:
+                    INCORRECT_O += 1
+                j += 1
+
+    # print 'ST: ' + st
+    print 'PER: Correct: ' + str(CORRECT_PER) + ', Incorrect: ' + str(INCORRECT_PER)
+    print 'LOC: Correct: ' + str(CORRECT_LOC) + ', Incorrect: ' + str(INCORRECT_LOC)
+    print 'ORG: Correct: ' + str(CORRECT_ORG) + ', Incorrect: ' + str(INCORRECT_ORG)
+    print 'MISC: Correct: ' + str(CORRECT_MISC) + ', Incorrect: ' + str(INCORRECT_MISC)
+    print 'O: Correct: ' + str(CORRECT_O) + ', Incorrect: ' + str(INCORRECT_O)
 
 def predict_NER(filename="test.txt", output_csv="output.csv"):
     """
@@ -158,8 +252,8 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         line_pos = all_lines[3*i + 1].split()
         token_number = all_lines[3*i + 2].split()
         #VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
-        VALID_TOKENS = set(["B-PER","B-LOC","B-ORG","B-MISC","I-PER","I-LOC","I-ORG","I-MISC"])
-        tagged_tokens = HMM(line_tokens)
+        VALID_TOKENS = set(["B-PER","B-LOC","B-ORG","B-MISC"])
+        tagged_tokens = HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER)
         j = 0
         #commenting this to rewrite the new version
         # while(j<len(line_tokens)):
@@ -202,44 +296,44 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         #New Version
         while (j < len(tagged_tokens)):
             if tagged_tokens[j] in VALID_TOKENS:
-                if (tagged_tokens[j] == 'B-PER' or tagged_tokens[j] == 'I-PER'):
+                if (tagged_tokens[j] == 'B-PER'):
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                            tagged_tokens[j] == 'I-PER' or tagged_tokens[j] == 'B-PER'):
+                            tagged_tokens[j] == 'I-PER'):
                         j += 1
 
                     PER = PER + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
                     #j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-LOC' or tagged_tokens[j] == 'I-LOC':
+                if tagged_tokens[j] == 'B-LOC':
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                                    tagged_tokens[j] == 'I-LOC' or tagged_tokens[j] == 'I-LOC'):
+                                    tagged_tokens[j] == 'I-LOC'):
                         j += 1
 
                     LOC = LOC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
                     #j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-ORG' or tagged_tokens[j] == 'I-ORG':
+                if tagged_tokens[j] == 'B-ORG':
                     first = j
                     j += 1
                     while j < len(tagged_tokens)  and (
-                                    tagged_tokens[j] == 'I-ORG' or tagged_tokens[j] == 'I-ORG'):
+                                    tagged_tokens[j] == 'I-ORG'):
                         j += 1
 
                     ORG = ORG + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
                     #j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-MISC' or tagged_tokens[j] == 'I-MISC':
+                if tagged_tokens[j] == 'B-MISC':
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                                    tagged_tokens[j] == 'I-MISC' or tagged_tokens[j] == 'I-MISC'):
+                                    tagged_tokens[j] == 'I-MISC'):
                         j += 1
 
                     MISC = MISC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
@@ -264,13 +358,27 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
 
 
 # Main calls
-ALL_TOKENS, count_NER, count_NER_NER, count_wordType_NER = tokenize("train.txt")
+ALL_TOKENS, count_NER, count_NER_NER, count_wordType_NER = tokenize(0.8, "train.txt")
+validate_NER('train.txt')
 predict_NER('test.txt', "output.csv")
 
-f = open('train.txt')
-raw = f.read()
+#f = open('train.txt')
+#raw = f.read()
+# TRAIN_ALL_TOKENS = ALL_TOKENS[:int(len(ALL_TOKENS)*0.8)]
+# VALIDATE_ALL_TOKENS = ALL_TOKENS[int(len(ALL_TOKENS)*0.8):]
+#
+# TRAIN_count_NER = count_NER[:int(len(ALL_TOKENS)*0.8)]
+# TEST_count_NER= count_NER[int(len(ALL_TOKENS)*0.8):]
+#
+# TRAIN_count_NER_NER = count_NER_NER[:int(len(count_NER_NER)*0.8)]
+# VALIDATE_count_NER_NER = count_NER_NER[:int(len(count_NER_NER)*0.8)]
+#
+# TRAIN_wordType_NER_NER = count_wordType_NER[:int(len(count_wordType_NER)*0.8)]
+# VALIDATE_wordType_NER_NER = count_wordType_NER[:int(len(count_wordType_NER)*0.8)]
 
-tokens = nltk.word_tokenize(raw)
+
+
+# tokens = nltk.word_tokenize(raw)
 
 # #Create your bigrams
 # #bgs = nltk.bigrams(tokens)
