@@ -7,6 +7,7 @@
 
 import nltk
 import numpy as np
+import math
 def tokenize(filename="train.txt"):
     """
     Tokenizes the train file and returns
@@ -72,10 +73,10 @@ def HMM(line_tokens):
     hmatrix = []
     ptrmatrix = []
     #NER_Types = ["PER","LOC","ORG","MISC", "O"]
-    NER_Types = ["I-PER","I-LOC","I-ORG","I-MISC","B-PER","B-LOC","B-ORG","B-MISC", "O"]
+    NER_Types = ["B-PER","I-PER","B-LOC","I-LOC","B-ORG","I-ORG","B-MISC","I-MISC", "O"]
     word_types = len(ALL_TOKENS)
-    ner = 5
-    k = 1
+    ner = 9
+    k = 0.26
 
     start_word = line_tokens[0]
     cur_row = []
@@ -86,7 +87,12 @@ def HMM(line_tokens):
         num = count_wordType_NER[(start_word,NER_Type)] if (start_word,NER_Type) in count_wordType_NER else 0
         den = count_NER[NER_Type]
         gen_prob = float((num + k)/(den+ner*k))
-        cur_row.append(trans_prob*gen_prob)
+        if("I-" in NER_Type):
+            trans_prob = 0.000000000000002
+        else:
+            trans_prob = 0.199999999999998
+        #cur_row.append(trans_prob*gen_prob)
+        cur_row.append(math.log(trans_prob)+math.log(gen_prob))
     hmatrix.append(cur_row)
 
     for j in range(1,len(line_tokens)):
@@ -106,7 +112,8 @@ def HMM(line_tokens):
                 num = count_wordType_NER[(cur_word, NER_Type)] if (cur_word, NER_Type) in count_wordType_NER else 0
                 den = count_NER[NER_Type]
                 gen_prob = float((num + k) / (den + ner * k))
-                tempspace.append(prev_score*trans_prob*gen_prob)
+                #tempspace.append(prev_score*trans_prob*gen_prob)
+                tempspace.append(prev_score+math.log(trans_prob)+math.log(gen_prob))
 
             cur_row.append(max(tempspace))
             ptr_row.append(np.argmax(tempspace))
@@ -121,11 +128,12 @@ def HMM(line_tokens):
         bptr = ptrmatrix[-1][idx]
 
     result.append(NER_Types[idx])
-    for p in range(len(line_tokens)-2,0,-1):
+    for p in range(len(ptrmatrix)-1,-1,-1):
         result.append(NER_Types[bptr])
         bptr = ptrmatrix[p][bptr]
 
     result = result[::-1]
+
     return result
 
 
@@ -152,7 +160,7 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         line_pos = all_lines[3*i + 1].split()
         token_number = all_lines[3*i + 2].split()
         #VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
-        VALID_TOKENS = set(["I-PER","I-LOC","I-ORG","I-MISC","B-PER","B-LOC","B-ORG","B-MISC"])
+        VALID_TOKENS = set(["B-PER","B-LOC","B-ORG","B-MISC"])
         tagged_tokens = HMM(line_tokens)
         j = 0
         #commenting this to rewrite the new version
@@ -198,61 +206,53 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
             if tagged_tokens[j] in VALID_TOKENS:
                 if (tagged_tokens[j] == 'B-PER'):
                     first = j
-                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                    j += 1
+                    while j < len(tagged_tokens) and (
                             tagged_tokens[j] == 'I-PER'):
                         j += 1
 
-                    PER = PER + str(token_number[first]) + "-" + str(token_number[j]) + " "
-                    j += 1
+                    PER = PER + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+                    #j += 1
                     continue
-                if(tagged_tokens[j] == 'I-PER'):
-                    PER = PER + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                    j += 1
-                    continue
+
                 if tagged_tokens[j] == 'B-LOC':
                     first = j
-                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                    j += 1
+                    while j < len(tagged_tokens) and (
                                     tagged_tokens[j] == 'I-LOC'):
                         j += 1
 
-                    LOC = LOC + str(token_number[first]) + "-" + str(token_number[j]) + " "
-                    j += 1
+                    LOC = LOC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+                    #j += 1
                     continue
-                if (tagged_tokens[j] == 'I-LOC'):
-                    LOC = LOC + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                    j += 1
-                    continue
+
                 if tagged_tokens[j] == 'B-ORG':
                     first = j
-                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                    j += 1
+                    while j < len(tagged_tokens)  and (
                                     tagged_tokens[j] == 'I-ORG'):
                         j += 1
 
-                    ORG = ORG + str(token_number[first]) + "-" + str(token_number[j]) + " "
-                    j += 1
+                    ORG = ORG + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+                    #j += 1
                     continue
-                if (tagged_tokens[j] == 'I-ORG'):
-                    ORG = ORG + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                    j += 1
-                    continue
+
                 if tagged_tokens[j] == 'B-MISC':
                     first = j
-                    while j < len(tagged_tokens) and tagged_tokens[j] in VALID_TOKENS and (
+                    j += 1
+                    while j < len(tagged_tokens) and (
                                     tagged_tokens[j] == 'I-MISC'):
                         j += 1
 
-                    MISC = MISC + str(token_number[first]) + "-" + str(token_number[j]) + " "
-                    j+=1
-                    continue
-                if (tagged_tokens[j] == 'I-MISC'):
-                    MISC = MISC + str(token_number[j]) + "-" + str(token_number[j]) + " "
-                    j += 1
+                    MISC = MISC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+                    #j+=1
                     continue
             else:
-                first = j
-                while j < len(tagged_tokens) and tagged_tokens[j] not in VALID_TOKENS:
-                    j += 1
-                O = O + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
+                j += 1
+                # first = j
+                # while j < len(tagged_tokens) and tagged_tokens[j] not in VALID_TOKENS:
+                #     j += 1
+                # O = O + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
 
     op_csv = open(output_csv,'w+')
     st = "Type,Prediction"
