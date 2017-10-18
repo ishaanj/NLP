@@ -76,7 +76,7 @@ def HMM(line_tokens):
     NER_Types = ["B-PER","I-PER","B-LOC","I-LOC","B-ORG","I-ORG","B-MISC","I-MISC", "O"]
     word_types = len(ALL_TOKENS)
     ner = 9
-    k = 0.26
+    k = 0.012
 
     start_word = line_tokens[0]
     cur_row = []
@@ -139,8 +139,6 @@ def HMM(line_tokens):
 
 
 
-
-
 def predict_NER(filename="test.txt", output_csv="output.csv"):
     """
     Predicts NER for the test data
@@ -160,7 +158,7 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         line_pos = all_lines[3*i + 1].split()
         token_number = all_lines[3*i + 2].split()
         #VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
-        VALID_TOKENS = set(["B-PER","B-LOC","B-ORG","B-MISC"])
+        VALID_TOKENS = set(["B-PER","B-LOC","B-ORG","B-MISC","I-PER","I-LOC","I-ORG","I-MISC"])
         tagged_tokens = HMM(line_tokens)
         j = 0
         #commenting this to rewrite the new version
@@ -204,44 +202,44 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         #New Version
         while (j < len(tagged_tokens)):
             if tagged_tokens[j] in VALID_TOKENS:
-                if (tagged_tokens[j] == 'B-PER'):
+                if (tagged_tokens[j] == 'B-PER' or tagged_tokens[j] == 'I-PER'):
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                            tagged_tokens[j] == 'I-PER'):
+                            tagged_tokens[j] == 'I-PER' or tagged_tokens[j] == 'B-PER'):
                         j += 1
 
                     PER = PER + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
                     #j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-LOC':
+                if tagged_tokens[j] == 'B-LOC' or tagged_tokens[j] == 'I-LOC':
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                                    tagged_tokens[j] == 'I-LOC'):
+                                    tagged_tokens[j] == 'I-LOC' or tagged_tokens[j] == 'I-LOC'):
                         j += 1
 
                     LOC = LOC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
                     #j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-ORG':
+                if tagged_tokens[j] == 'B-ORG' or tagged_tokens[j] == 'I-ORG':
                     first = j
                     j += 1
                     while j < len(tagged_tokens)  and (
-                                    tagged_tokens[j] == 'I-ORG'):
+                                    tagged_tokens[j] == 'I-ORG' or tagged_tokens[j] == 'I-ORG'):
                         j += 1
 
                     ORG = ORG + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
                     #j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-MISC':
+                if tagged_tokens[j] == 'B-MISC' or tagged_tokens[j] == 'I-MISC':
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                                    tagged_tokens[j] == 'I-MISC'):
+                                    tagged_tokens[j] == 'I-MISC' or tagged_tokens[j] == 'I-MISC'):
                         j += 1
 
                     MISC = MISC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
