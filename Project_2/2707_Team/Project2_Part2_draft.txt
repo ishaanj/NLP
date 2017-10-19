@@ -1,0 +1,47 @@
+CS4740 Project 2 Part 2
+
+
+
+Sequence Tagging Model
+
+Implementation Details:
+
+We'd decided on two extensions. The first was to experiment with different orders of n-grams, and the second was to implement a CRF. 
+
+With our HMM, we were able to make use of the conditional independence assumption, the first order Markov assumption. Conditional independence allows us to assume that two states will be independent given the conditional probability distribution. That is, we assumed that the state transition probability was only dependent on the previous state, and not a function of all previous and future states. This signficantly reduces the probability matrices we need to maintain, as we can just build state transition probabilities for the 9 states we have. 
+
+However, by assuming conditional independence, we drop a lot of context. For instance, if the current paragraph talk about food, it is likely that the next few sentences will reference food as well, which can shift our probabilities. Practically, every NE assignment we do should incorporate the NE assignments of nearby states. 
+
+**check
+We chose to build a linear chain CRF, to evaluate it's performance, and determine how having slightly more context than HMM would benefit CRF. That is, for every word state we have, we consider the previous and the next words for context to classify it's position. Another important part of setting up CRF is choosing how to convert features to probabilities. The features you include and the probabilities assigned to them have a significant impact on the final outcome. Note that we also chose to evaluate the test input on a sentence by sentence basis. This was because our original HMM implementation also evaluted on a sentence basis, and we wanted to compare our hopeful improvement to the baseline. 
+
+Here were the features we chose to add:
+	For all:
+		whether the word is all upper case
+		whether the word is a title
+		whether the word is a digit
+		POS tag
+		Truncated POS tag
+		Beginning of sentence
+		End of sentence
+	For current:
+		word in lower case
+		2nd from last word in sentence
+		3rd from last word in sentence
+
+For all words, we considered some basic features, such as whether the word was all upper case, or whether it was capitalized. Both of these are indictive of Named Entities, and the all upper case one in particular could be for organizations. We also considered the POS tag, as there is a strong correlation with certain POS tags such as NNP, and NEs. 
+		
+We used the sklearn suite to implement CRF. There were several parameters we tested locally before choosing the best combination. The first was the algorithm. The sklearn suite performs tuning internally, and we chose the Limited Memory BFGS (lbfgs) algorithm for this optimization over others like Stochastic Gradient Descent with L2 regularization (l2sgd) or perceptron (ap). Using l2sgd would have speeded up our code (it makes orders of magnitude fewer iterations when compared to lbfgs), but would have produced a sub-optimal solution when compared to lbfgs. Since the dataset we were operating on was quite small, we decided to opt for the more accurate algorithm. If instead of just Stochastic Gradient Descent, we had the option of Adagrad (covered in 4780), we would have chosen that, as it has been shown to greatly improve the robustness of SGD. We also set the coefficient for both L1 and L2 regularization to 0.1, a number we found performed reasonably well through trial and error. We set the maximum number of iterations to 100, as we noticed that the rate of improvement in the result drastically shrunk at around this point. Finally, we also set all_possible_transitions to true. This flag ensured that if the training data did not contain transition probabilities for some states (due to no data), CRF would automatically generate some (strongly negative) weights for these transitions. 
+
+Pre-Processing
+
+
+
+Experiments:
+
+As part of this, we swiftly built our HMM and split our training data set into a 80/20 split
+
+Results
+
+Competition Score
+
