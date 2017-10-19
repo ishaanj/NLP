@@ -8,7 +8,7 @@ Implementation Details:
 
 We'd decided on two extensions. The first was to experiment with different orders of n-grams, and the second was to implement a CRF. 
 
-With our HMM, we were able to make use of the conditional independence assumption, the first order Markov assumption. Conditional independence allows us to assume that two states will be independent given the conditional probability distribution. That is, we assumed that the state transition probability was only dependent on the previous state, and not a function of all previous and future states. This signficantly reduces the probability matrices we need to maintain, as we can just build state transition probabilities for the 9 states we have. 
+With our HMM, we were able to make use of the conditional independence assumption, the first order Markov assumption. Conditional independence allows us to assume that two states will be independent given the conditional probability distribution. That is, we assumed that the state transition probability was only dependent on the previous state, and not a function of all previous and future states. This significantly reduces the probability matrices we need to maintain, as we can just build state transition probabilities for the 9 states we have. 
 
 However, by assuming conditional independence, we drop a lot of context. For instance, if the current paragraph talk about food, it is likely that the next few sentences will reference food as well, which can shift our probabilities. Practically, every NE assignment we do should incorporate the NE assignments of nearby states. 
 
@@ -35,11 +35,16 @@ We used the sklearn suite to implement CRF. There were several parameters we tes
 
 Pre-Processing
 
-
+We decided to try the algorithm as is, without any pre-processing, with the intent to add them if necessary. This was also because we noticed the data was actually in quite good shape. After obtaining our results, we did see that they were adequate, so we decided to not add any preprocessing. 
 
 Experiments:
 
 As part of this, we swiftly built our HMM and split our training data set into a 80/20 split
+
+
+backpointer has one less row than the score matric
+we were filling with an off-by-one error, which was significantly reducing our prediction
+It took a long time to fix, and once it was done we went from 11 to 67% for HMM, 85% for CRF
 
 Results
 
