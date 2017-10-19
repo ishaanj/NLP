@@ -149,15 +149,23 @@ def validate_NER(filename="test.txt"):
         """
 
     f = open(filename, 'r')
-    CORRECT_PER = 0
-    CORRECT_ORG = 0
-    CORRECT_LOC = 0
-    CORRECT_MISC = 0
+    CORRECT_B_PER = 0
+    CORRECT_I_PER = 0
+    CORRECT_B_ORG = 0
+    CORRECT_I_ORG = 0
+    CORRECT_B_LOC = 0
+    CORRECT_I_LOC = 0
+    CORRECT_B_MISC = 0
+    CORRECT_I_MISC = 0
     CORRECT_O = 0
-    INCORRECT_PER = 0
-    INCORRECT_ORG = 0
-    INCORRECT_LOC = 0
-    INCORRECT_MISC = 0
+    INCORRECT_B_PER = 0
+    INCORRECT_I_PER = 0
+    INCORRECT_B_ORG = 0
+    INCORRECT_I_ORG = 0
+    INCORRECT_B_LOC = 0
+    INCORRECT_I_LOC = 0
+    INCORRECT_B_MISC = 0
+    INCORRECT_I_MISC = 0
     INCORRECT_O = 0
     all_lines = f.readlines()
     num_lines = len(all_lines) / 3
@@ -168,7 +176,7 @@ def validate_NER(filename="test.txt"):
         ner_result = all_lines[3 * i + 2].split()
 
         # VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
-        VALID_TOKENS = set(["B-PER", "B-LOC", "B-ORG", "B-MISC"])
+        VALID_TOKENS = set(["B-PER", "B-LOC", "B-ORG", "B-MISC", "I-PER", "I-LOC", "I-ORG", "I-MISC"])
         tagged_tokens = HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER)
         j = 1
         # New Version
@@ -176,51 +184,52 @@ def validate_NER(filename="test.txt"):
             if tagged_tokens[j] in VALID_TOKENS:
                 if (tagged_tokens[j] == 'B-PER'):
                     if ner_result[j] == 'B-PER':
-                        CORRECT_PER += 1
+                        CORRECT_B_PER += 1
                     else:
-                        INCORRECT_PER += 1
+                        INCORRECT_B_PER += 1
 
                 elif (tagged_tokens[j] == 'I-PER'):
                     if ner_result[j] == 'I-PER':
-                        CORRECT_PER += 1
+                        CORRECT_I_PER += 1
                     else:
-                        INCORRECT_PER += 1
+                        INCORRECT_I_PER += 1
 
                 elif (tagged_tokens[j] == 'B-LOC'):
                     if ner_result[j] == 'B-LOC':
-                        CORRECT_LOC += 1
+                        CORRECT_B_LOC += 1
                     else:
-                        INCORRECT_LOC += 1
+                        INCORRECT_B_LOC += 1
 
                 elif (tagged_tokens[j] == 'I-LOC'):
                     if ner_result[j] == 'I-LOC':
-                        CORRECT_LOC += 1
+                        CORRECT_I_LOC += 1
                     else:
-                        INCORRECT_LOC += 1
+                        INCORRECT_I_LOC += 1
 
                 elif (tagged_tokens[j] == 'B-ORG'):
                     if ner_result[j] == 'B-ORG':
-                        CORRECT_ORG += 1
+                        CORRECT_B_ORG += 1
                     else:
-                        INCORRECT_ORG += 1
+                        INCORRECT_B_ORG += 1
 
                 elif (tagged_tokens[j] == 'I-ORG'):
                     if ner_result[j] == 'I-ORG':
-                        CORRECT_ORG += 1
+                        CORRECT_I_ORG += 1
                     else:
-                        INCORRECT_ORG += 1
+                        INCORRECT_I_ORG += 1
 
                 elif (tagged_tokens[j] == 'B-MISC'):
                     if ner_result[j] == 'B-MISC':
-                        CORRECT_MISC += 1
+                        CORRECT_B_MISC += 1
                     else:
-                        INCORRECT_MISC += 1
+                        INCORRECT_B_MISC += 1
+                        # print ("B-MISC wrong: " + line_tokens[j] + ' classified as: ' + ner_result[j])
 
                 elif (tagged_tokens[j] == 'I-MISC'):
                     if ner_result[j] == 'I-MISC':
-                        CORRECT_MISC += 1
+                        CORRECT_I_MISC += 1
                     else:
-                        INCORRECT_MISC += 1
+                        INCORRECT_I_MISC += 1
                 j += 1
             else:
                 if ner_result[j] == 'O':
@@ -230,10 +239,17 @@ def validate_NER(filename="test.txt"):
                 j += 1
 
     # print 'ST: ' + st
-    print ('PER: Correct: ' + str(CORRECT_PER) + ', Incorrect: ' + str(INCORRECT_PER))
-    print ('LOC: Correct: ' + str(CORRECT_LOC) + ', Incorrect: ' + str(INCORRECT_LOC))
-    print ('ORG: Correct: ' + str(CORRECT_ORG) + ', Incorrect: ' + str(INCORRECT_ORG))
-    print ('MISC: Correct: ' + str(CORRECT_MISC) + ', Incorrect: ' + str(INCORRECT_MISC))
+    print ('B:')
+    print ('PER: Correct: ' + str(CORRECT_B_PER) + ', Incorrect: ' + str(INCORRECT_B_PER))
+    print ('LOC: Correct: ' + str(CORRECT_B_LOC) + ', Incorrect: ' + str(INCORRECT_B_LOC))
+    print ('ORG: Correct: ' + str(CORRECT_B_ORG) + ', Incorrect: ' + str(INCORRECT_B_ORG))
+    print ('MISC: Correct: ' + str(CORRECT_B_MISC) + ', Incorrect: ' + str(INCORRECT_B_MISC))
+
+    print ('I:')
+    print ('PER: Correct: ' + str(CORRECT_I_PER) + ', Incorrect: ' + str(INCORRECT_I_PER))
+    print ('LOC: Correct: ' + str(CORRECT_I_LOC) + ', Incorrect: ' + str(INCORRECT_I_LOC))
+    print ('ORG: Correct: ' + str(CORRECT_I_ORG) + ', Incorrect: ' + str(INCORRECT_I_ORG))
+    print ('MISC: Correct: ' + str(CORRECT_I_MISC) + ', Incorrect: ' + str(INCORRECT_I_MISC))
     print ('O: Correct: ' + str(CORRECT_O) + ', Incorrect: ' + str(INCORRECT_O))
 
 def predict_NER(filename="test.txt", output_csv="output.csv"):
