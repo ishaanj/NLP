@@ -26,6 +26,7 @@ def tokenize(split, filename="train.txt"):
 
 
     all_lines = f.readlines()
+    #print(len(all_lines)/3)
     for i in range(int(len(all_lines)/3 * split)):
         line_tokens = all_lines[3*i].split()
         line_pos = all_lines[3*i+1].split()
@@ -129,10 +130,12 @@ def HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER):
         bptr = ptrmatrix[-1][idx]
 
     result.append(NER_Types[idx])
-    for p in range(len(ptrmatrix)-1,-1,-1):
+    for p in range(len(ptrmatrix)-2,-1,-1):
         result.append(NER_Types[bptr])
         bptr = ptrmatrix[p][bptr]
 
+    if(len(ptrmatrix)>0):
+        result.append(NER_Types[bptr])
     result = result[::-1]
 
     return result
@@ -146,15 +149,23 @@ def validate_NER(filename="test.txt"):
         """
 
     f = open(filename, 'r')
-    CORRECT_PER = 0
-    CORRECT_ORG = 0
-    CORRECT_LOC = 0
-    CORRECT_MISC = 0
+    CORRECT_B_PER = 0
+    CORRECT_I_PER = 0
+    CORRECT_B_ORG = 0
+    CORRECT_I_ORG = 0
+    CORRECT_B_LOC = 0
+    CORRECT_I_LOC = 0
+    CORRECT_B_MISC = 0
+    CORRECT_I_MISC = 0
     CORRECT_O = 0
-    INCORRECT_PER = 0
-    INCORRECT_ORG = 0
-    INCORRECT_LOC = 0
-    INCORRECT_MISC = 0
+    INCORRECT_B_PER = 0
+    INCORRECT_I_PER = 0
+    INCORRECT_B_ORG = 0
+    INCORRECT_I_ORG = 0
+    INCORRECT_B_LOC = 0
+    INCORRECT_I_LOC = 0
+    INCORRECT_B_MISC = 0
+    INCORRECT_I_MISC = 0
     INCORRECT_O = 0
     all_lines = f.readlines()
     num_lines = len(all_lines) / 3
@@ -165,7 +176,7 @@ def validate_NER(filename="test.txt"):
         ner_result = all_lines[3 * i + 2].split()
 
         # VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
-        VALID_TOKENS = set(["B-PER", "B-LOC", "B-ORG", "B-MISC"])
+        VALID_TOKENS = set(["B-PER", "B-LOC", "B-ORG", "B-MISC", "I-PER", "I-LOC", "I-ORG", "I-MISC"])
         tagged_tokens = HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER)
         j = 1
         # New Version
@@ -173,51 +184,52 @@ def validate_NER(filename="test.txt"):
             if tagged_tokens[j] in VALID_TOKENS:
                 if (tagged_tokens[j] == 'B-PER'):
                     if ner_result[j] == 'B-PER':
-                        CORRECT_PER += 1
+                        CORRECT_B_PER += 1
                     else:
-                        INCORRECT_PER += 1
+                        INCORRECT_B_PER += 1
 
                 elif (tagged_tokens[j] == 'I-PER'):
                     if ner_result[j] == 'I-PER':
-                        CORRECT_PER += 1
+                        CORRECT_I_PER += 1
                     else:
-                        INCORRECT_PER += 1
+                        INCORRECT_I_PER += 1
 
                 elif (tagged_tokens[j] == 'B-LOC'):
                     if ner_result[j] == 'B-LOC':
-                        CORRECT_LOC += 1
+                        CORRECT_B_LOC += 1
                     else:
-                        INCORRECT_LOC += 1
+                        INCORRECT_B_LOC += 1
 
                 elif (tagged_tokens[j] == 'I-LOC'):
                     if ner_result[j] == 'I-LOC':
-                        CORRECT_LOC += 1
+                        CORRECT_I_LOC += 1
                     else:
-                        INCORRECT_LOC += 1
+                        INCORRECT_I_LOC += 1
 
                 elif (tagged_tokens[j] == 'B-ORG'):
                     if ner_result[j] == 'B-ORG':
-                        CORRECT_ORG += 1
+                        CORRECT_B_ORG += 1
                     else:
-                        INCORRECT_ORG += 1
+                        INCORRECT_B_ORG += 1
 
                 elif (tagged_tokens[j] == 'I-ORG'):
                     if ner_result[j] == 'I-ORG':
-                        CORRECT_ORG += 1
+                        CORRECT_I_ORG += 1
                     else:
-                        INCORRECT_ORG += 1
+                        INCORRECT_I_ORG += 1
 
                 elif (tagged_tokens[j] == 'B-MISC'):
                     if ner_result[j] == 'B-MISC':
-                        CORRECT_MISC += 1
+                        CORRECT_B_MISC += 1
                     else:
-                        INCORRECT_MISC += 1
+                        INCORRECT_B_MISC += 1
+                        # print ("B-MISC wrong: " + line_tokens[j] + ' classified as: ' + ner_result[j])
 
                 elif (tagged_tokens[j] == 'I-MISC'):
                     if ner_result[j] == 'I-MISC':
-                        CORRECT_MISC += 1
+                        CORRECT_I_MISC += 1
                     else:
-                        INCORRECT_MISC += 1
+                        INCORRECT_I_MISC += 1
                 j += 1
             else:
                 if ner_result[j] == 'O':
@@ -227,11 +239,18 @@ def validate_NER(filename="test.txt"):
                 j += 1
 
     # print 'ST: ' + st
-    print 'PER: Correct: ' + str(CORRECT_PER) + ', Incorrect: ' + str(INCORRECT_PER)
-    print 'LOC: Correct: ' + str(CORRECT_LOC) + ', Incorrect: ' + str(INCORRECT_LOC)
-    print 'ORG: Correct: ' + str(CORRECT_ORG) + ', Incorrect: ' + str(INCORRECT_ORG)
-    print 'MISC: Correct: ' + str(CORRECT_MISC) + ', Incorrect: ' + str(INCORRECT_MISC)
-    print 'O: Correct: ' + str(CORRECT_O) + ', Incorrect: ' + str(INCORRECT_O)
+    print ('B:')
+    print ('PER: Correct: ' + str(CORRECT_B_PER) + ', Incorrect: ' + str(INCORRECT_B_PER))
+    print ('LOC: Correct: ' + str(CORRECT_B_LOC) + ', Incorrect: ' + str(INCORRECT_B_LOC))
+    print ('ORG: Correct: ' + str(CORRECT_B_ORG) + ', Incorrect: ' + str(INCORRECT_B_ORG))
+    print ('MISC: Correct: ' + str(CORRECT_B_MISC) + ', Incorrect: ' + str(INCORRECT_B_MISC))
+
+    print ('I:')
+    print ('PER: Correct: ' + str(CORRECT_I_PER) + ', Incorrect: ' + str(INCORRECT_I_PER))
+    print ('LOC: Correct: ' + str(CORRECT_I_LOC) + ', Incorrect: ' + str(INCORRECT_I_LOC))
+    print ('ORG: Correct: ' + str(CORRECT_I_ORG) + ', Incorrect: ' + str(INCORRECT_I_ORG))
+    print ('MISC: Correct: ' + str(CORRECT_I_MISC) + ', Incorrect: ' + str(INCORRECT_I_MISC))
+    print ('O: Correct: ' + str(CORRECT_O) + ', Incorrect: ' + str(INCORRECT_O))
 
 def predict_NER(filename="test.txt", output_csv="output.csv"):
     """
@@ -252,7 +271,7 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         line_pos = all_lines[3*i + 1].split()
         token_number = all_lines[3*i + 2].split()
         #VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
-        VALID_TOKENS = set(["B-PER","B-LOC","B-ORG","B-MISC"])
+        VALID_TOKENS = set(["B-PER","B-LOC","B-ORG","B-MISC","I-PER","I-LOC","I-ORG","I-MISC"])
         tagged_tokens = HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER)
         j = 0
         #commenting this to rewrite the new version
@@ -296,48 +315,48 @@ def predict_NER(filename="test.txt", output_csv="output.csv"):
         #New Version
         while (j < len(tagged_tokens)):
             if tagged_tokens[j] in VALID_TOKENS:
-                if (tagged_tokens[j] == 'B-PER'):
+                if (tagged_tokens[j] == 'B-PER' or tagged_tokens[j] == 'I-PER'):
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                            tagged_tokens[j] == 'I-PER'):
+                                    tagged_tokens[j] == 'I-PER' or tagged_tokens[j] == 'B-PER'):
                         j += 1
 
-                    PER = PER + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
-                    #j += 1
+                    PER = PER + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    # j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-LOC':
+                if tagged_tokens[j] == 'B-LOC' or tagged_tokens[j] == 'I-LOC':
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                                    tagged_tokens[j] == 'I-LOC'):
+                                    tagged_tokens[j] == 'I-LOC' or tagged_tokens[j] == 'B-LOC'):
                         j += 1
 
-                    LOC = LOC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
-                    #j += 1
+                    LOC = LOC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    # j += 1
                     continue
 
-                if tagged_tokens[j] == 'B-ORG':
-                    first = j
-                    j += 1
-                    while j < len(tagged_tokens)  and (
-                                    tagged_tokens[j] == 'I-ORG'):
-                        j += 1
-
-                    ORG = ORG + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
-                    #j += 1
-                    continue
-
-                if tagged_tokens[j] == 'B-MISC':
+                if tagged_tokens[j] == 'B-ORG' or tagged_tokens[j] == 'I-ORG':
                     first = j
                     j += 1
                     while j < len(tagged_tokens) and (
-                                    tagged_tokens[j] == 'I-MISC'):
+                                    tagged_tokens[j] == 'I-ORG' or tagged_tokens[j] == 'B-ORG'):
                         j += 1
 
-                    MISC = MISC + str(token_number[first]) + "-" + str(token_number[j-1]) + " "
-                    #j+=1
+                    ORG = ORG + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    # j += 1
+                    continue
+
+                if tagged_tokens[j] == 'B-MISC' or tagged_tokens[j] == 'I-MISC':
+                    first = j
+                    j += 1
+                    while j < len(tagged_tokens) and (
+                                    tagged_tokens[j] == 'I-MISC' or tagged_tokens[j] == 'B-MISC'):
+                        j += 1
+
+                    MISC = MISC + str(token_number[first]) + "-" + str(token_number[j - 1]) + " "
+                    # j+=1
                     continue
             else:
                 j += 1
