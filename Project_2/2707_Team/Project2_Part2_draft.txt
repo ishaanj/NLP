@@ -12,8 +12,7 @@ With our HMM, we were able to make use of the conditional independence assumptio
 
 However, by assuming conditional independence, we drop a lot of context. For instance, if the current paragraph talk about food, it is likely that the next few sentences will reference food as well, which can shift our probabilities. Practically, every NE assignment we do should incorporate the NE assignments of nearby states. 
 
-**check
-We chose to build a linear chain CRF, to evaluate it's performance, and determine how having slightly more context than HMM would benefit CRF. That is, for every word state we have, we consider the previous and the next words for context to classify it's position. Another important part of setting up CRF is choosing how to convert features to probabilities. The features you include and the probabilities assigned to them have a significant impact on the final outcome. Note that we also chose to evaluate the test input on a sentence by sentence basis. This was because our original HMM implementation also evaluted on a sentence basis, and we wanted to compare our hopeful improvement to the baseline. 
+We chose to use a linear chain CRF, by implementing CRFSuite as per the tutorial listed below, to evaluate it's performance, and determine how having slightly more context than HMM would benefit CRF. That is, for every word state we have, we consider the previous and the next words for context to classify it's position. Another important part of setting up CRF is choosing how to convert features to probabilities. The features you include and the probabilities assigned to them have a significant impact on the final outcome. Note that we also chose to evaluate the test input on a sentence by sentence basis. This was because our original HMM implementation also evaluated on a sentence basis, and we wanted to compare our hopeful improvement to the baseline. 
 
 Here were the features we chose to add:
 	For all:
@@ -26,27 +25,87 @@ Here were the features we chose to add:
 		End of sentence
 	For current:
 		word in lower case
-		2nd from last word in sentence
-		3rd from last word in sentence
+		First two characters of the word (prefix)
+		Last two characters of the word (suffix)
 
 For all words, we considered some basic features, such as whether the word was all upper case, or whether it was capitalized. Both of these are indictive of Named Entities, and the all upper case one in particular could be for organizations. We also considered the POS tag, as there is a strong correlation with certain POS tags such as NNP, and NEs. 
 		
-We used the sklearn suite to implement CRF. There were several parameters we tested locally before choosing the best combination. The first was the algorithm. The sklearn suite performs tuning internally, and we chose the Limited Memory BFGS (lbfgs) algorithm for this optimization over others like Stochastic Gradient Descent with L2 regularization (l2sgd) or perceptron (ap). Using l2sgd would have speeded up our code (it makes orders of magnitude fewer iterations when compared to lbfgs), but would have produced a sub-optimal solution when compared to lbfgs. Since the dataset we were operating on was quite small, we decided to opt for the more accurate algorithm. If instead of just Stochastic Gradient Descent, we had the option of Adagrad (covered in 4780), we would have chosen that, as it has been shown to greatly improve the robustness of SGD. We also set the coefficient for both L1 and L2 regularization to 0.1, a number we found performed reasonably well through trial and error. We set the maximum number of iterations to 100, as we noticed that the rate of improvement in the result drastically shrunk at around this point. Finally, we also set all_possible_transitions to true. This flag ensured that if the training data did not contain transition probabilities for some states (due to no data), CRF would automatically generate some (strongly negative) weights for these transitions. 
+We used the sklearn suite to implement CRF. There were several parameters we tested locally before choosing the best combination. The first was the algorithm. The sklearn suite performs tuning internally, and we felt the Limited Memory BFGS (lbfgs) algorithm would perform better over others like Stochastic Gradient Descent with L2 regularization (l2sgd) or perceptron (ap). Using l2sgd would have speeded up our code (it makes orders of magnitude fewer iterations when compared to lbfgs), but would have produced a sub-optimal solution when compared to lbfgs. Since the dataset we were operating on was quite small, we decided to opt for the more accurate algorithm. If instead of just Stochastic Gradient Descent, we had the option of Adagrad (covered in 4780), we would have chosen that, as it has been shown to greatly improve the robustness of SGD. There were also two other optimizations techniques, Averaged Perceptron and Passsive Aggresive that we decided to try. 
+We also set the coefficient for both L1 and L2 regularization to 0.1, a number we found performed reasonably well through trial and error. We set the maximum number of iterations to 100, as we noticed that the rate of improvement in the result drastically shrunk at around this point. Finally, we also set all_possible_transitions to true. This flag ensured that if the training data did not contain transition probabilities for some states (due to no data), CRF would automatically generate some (strongly negative) weights for these transitions. 
+
+After that, we also tried out the PyStruct library. Instead of using a linear chained CRF, the library used an SVM with CRF. Hoefel (2008) suggests this is to take advantage of the max-margin classifier property of SVM in the hopes of finding the best assignment, as opposed to using just likelihood maximization approaches. With the combination, we can find the most likely labels for a word, and have that feed into the CRF to have it assign labels based on the surrounding words. We expect this to perform better than just the linear chain CRF used above. 
 
 Pre-Processing
 
-We decided to try the algorithm as is, without any pre-processing, with the intent to add them if necessary. This was also because we noticed the data was actually in quite good shape. After obtaining our results, we did see that they were adequate, so we decided to not add any preprocessing. 
+We decided to try the algorithm as is, without any significant pre-processing, with the intent to add them if necessary. This was also because we noticed the data was actually in quite good shape. After obtaining our results, we did see that they were adequate, so we decided to not add any preprocessing. 
+The basic preprocessing we did was to break up the input into words, POS tags and NER tags if training, or token count if test. 
+
+#make sure you mention we want to keep punctionation in
+#not heavily optimizing k for smoothing
+#not handling unknown words; if it only occurs once, treat as UNK
 
 Experiments:
 
-As part of this, we swiftly built our HMM and split our training data set into a 80/20 split
+As part of this, we swiftly built our HMM. This was a standard implementation, summing up all the counts for the various states to build generation probabilitires, and their previous neighbour to build transition probabilities. We expected to get around 70% with this implementation, as we figured we'd capture the majority of the tokens. Originally, we had not split our training data set, and we were shocked to see that our Kaggle score was 11% correctly classified.
 
+After this, we split our training data set into a 80/20 split so we would have some to evaluate on. We also had 14% locally. It took us a few days of debugging, but we were able to isolate the problem to the way we'd implemented the back pointers for the Viterbi algorithms. The back pointers were one less than the total number of states, and we had implemented it with an off-by-one error, which had shifted all our results over. After fixing that, we had a score of 73% locally and 67% for HMM on Kaggle. 
 
-backpointer has one less row than the score matric
-we were filling with an off-by-one error, which was significantly reducing our prediction
-It took a long time to fix, and once it was done we went from 11 to 67% for HMM, 85% for CRF
+At this point, we decided to try with CRF. We knew that CRFs were found to be better for NER tasks than HMMs because they could take in more context, so we expected a moderate increase over our previous run. We first setup CRFSuite as described above, and found that the accuracy was now 85%. This is slightly low for a Named Entity recognition system that should be above 90% accuracy, seeing as the majority of words in normal discourse are not NEs. However, the training data set had a higher than normal ratio for NEs, explaining why our initial accuracy may have been lower than expected. 
 
 Results
 
+Approach:		Local	Kaggle (if available)
+HMM before fix: 14%		11%
+HMM after fix: 	73%		67%
+CRFSuite:		82%		85%
+
+As seen above, there is a significant difference between HMM and CRFSuite. 
+
+Broken down results for HMM off validation data set:
+
+B:
+PER: Correct: 698, Incorrect: 33, 95%
+LOC: Correct: 995, Incorrect: 61, 94%
+ORG: Correct: 366, Incorrect: 111, 77%
+MISC: Correct: 424, Incorrect: 885, 32%
+I:
+PER: Correct: 784, Incorrect: 110, 88%
+LOC: Correct: 133, Incorrect: 235, 36%
+ORG: Correct: 420, Incorrect: 403, 51%
+MISC: Correct: 231, Incorrect: 3594, 6%
+O: Correct: 26270, Incorrect: 251, 99%
+
+Above, we have the results when we run HMM on our validation data set. We noticed that for B, while PER and LOC were labelled quite well, ORG was at around 80%, and MISC was at only 33%. For I, PER was the only one we were able to label well, with I-MISC having a significant number of incorrectly classified words. This was quite a bit different from what we were expecting, which was an even distribution off correct and incorrect NER tags amongst the different states. 
+
+When we analyzed why this was the case, we realized that a lot of the incorrectly classified counts for MISC were actually other B tags. We suspected this was because PER had the narrowest range of possible values, and situations where it may appear in. Thus, our unoptimized HMM was able to identify the majority of them without difficulty. MISC, on the other hand, had the greatest possible range amongst the NE tags. This appeared to be because it was misclassifying many other B/I tags as B/I-MISC. 
+As B/I-MISC had the greatest range, this made sense, as it was the most likely to have one-count words. Indeed, a quick scan of the incorrectly classified words were one-count words such as 'Kofi'. One way to improve this would be to implement some sort of UNK handling like we had in Project 1. That is, we would substitute all 1-count words with UNK (or UNK-PER, UNK-LOC, etc), allowing us to then include that in our probability distribution. 
+We did find it incredibly strange that we had so many mis-classified I's. If anything, we were expecting it to go the other way, as I's should only follow B's or other I's. We suspect that the latter part was not correctly terminating, and we were having long chains of I's following other I's where they shouldn't have. 
+
+We also generated output for CRFSuite, as below:
+
+B:
+PER: Correct: 1401, Incorrect: 219, 86%
+LOC: Correct: 1339, Incorrect: 195, 87%
+ORG: Correct: 719, Incorrect: 250, 74%
+MISC: Correct: 499, Incorrect: 91, 85%
+I:
+PER: Correct: 1184, Incorrect: 121, 91%
+LOC: Correct: 137, Incorrect: 40, 77%
+ORG: Correct: 435, Incorrect: 129, 77%
+MISC: Correct: 166, Incorrect: 36, 82%
+
+O: Correct: 31460, Incorrect: 383, 99%
+
+Comparing this to the HMM output, it looks much better. We still classify B-PER and I-PER very effectively, but now we no longer have any significant outliers unlike for the HMM. This is likely because CRF is a sequence classifier. It assigns NE tags based on the surrounding assignments, and is much more effective for this. 
+
+
+
 Competition Score
 
+Acknowledgements/References:
+
+We used the tutorial below to implement CRFSuite. 
+https://sklearn-crfsuite.readthedocs.io/en/latest/tutorial.html
+
+G. Hoefel and C. Elkan. Learning a two-stage SVM/CRF sequence classifier. In Proceedings of the ACM Conference on Information and Knowledge
+Management, pages 271–278, 2008.

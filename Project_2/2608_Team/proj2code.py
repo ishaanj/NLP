@@ -162,9 +162,17 @@ ner_types = ["B-PER", "I-PER", "B-LOC", "I-LOC", "B-ORG", "I-ORG", "B-MISC", "I-
 
 #Process the test file
 test_tokens, test_pos_tags, test_token_indices = process_test_file("test.txt")
+train_tokens, train_pos, train_ner = process_test_file("train.txt")
 
 #Apply HMM algo
-test_ner_tags = applyHMM(test_tokens, count_word_ner, count_ner_prevner, count_ner, ner_types)
+# test_ner_tags = applyHMM(test_tokens, count_word_ner, count_ner_prevner, count_ner, ner_types)
+val_ner_tags = applyHMM(train_tokens[:10000], count_word_ner, count_ner_prevner, count_ner, ner_types)
 
+for i, _ in enumerate(train_ner[:10000]):
+    if train_ner[i] != val_ner_tags[i]:
+        print("Word: ", train_tokens[i])
+        print("Predicted: ", val_ner_tags[i])
+        print("Correct: ", train_ner[i])
+        print("Index: ", i)
 #Generate CSV
-generateCSV(test_ner_tags)
+# generateCSV(test_ner_tags)
