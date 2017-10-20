@@ -154,31 +154,31 @@ def word2features(sent, i):
         'postag': postag,
         'postag[:2]': postag[:2],
     }
-    # if i > 0:
-    #     word1 = sent[i-1][0]
-    #     postag1 = sent[i-1][1]
-    #     features.update({
-    #         '-1:word.lower()': word1.lower(),
-    #         '-1:word.istitle()': word1.istitle(),
-    #         '-1:word.isupper()': word1.isupper(),
-    #         '-1:postag': postag1,
-    #         '-1:postag[:2]': postag1[:2],
-    #     })
-    # else:
-    #     features['BOS'] = True
-    #
-    # if i < len(sent)-1:
-    #     word1 = sent[i+1][0]
-    #     postag1 = sent[i+1][1]
-    #     features.update({
-    #         '+1:word.lower()': word1.lower(),
-    #         '+1:word.istitle()': word1.istitle(),
-    #         '+1:word.isupper()': word1.isupper(),
-    #         '+1:postag': postag1,
-    #         '+1:postag[:2]': postag1[:2],
-    #     })
-    # else:
-    #     features['EOS'] = True
+    if i > 0:
+        word1 = sent[i-1][0]
+        postag1 = sent[i-1][1]
+        features.update({
+            '-1:word.lower()': word1.lower(),
+            '-1:word.istitle()': word1.istitle(),
+            '-1:word.isupper()': word1.isupper(),
+            '-1:postag': postag1,
+            '-1:postag[:2]': postag1[:2],
+        })
+    else:
+        features['BOS'] = True
+
+    if i < len(sent)-1:
+        word1 = sent[i+1][0]
+        postag1 = sent[i+1][1]
+        features.update({
+            '+1:word.lower()': word1.lower(),
+            '+1:word.istitle()': word1.istitle(),
+            '+1:word.isupper()': word1.isupper(),
+            '+1:postag': postag1,
+            '+1:postag[:2]': postag1[:2],
+        })
+    else:
+        features['EOS'] = True
 
     return features
 
@@ -261,7 +261,7 @@ def writeOutput(actual_preds, output_csv = "extension_output.csv"):
     # op_csv.write(O + "\n")
     op_csv.close()
 
-def validate_NER(y_val, y_pred):
+def validate_NER(y_val, y_pred, x_val):
     """
         Predicts NER for the test data
         :param filename: test.txt
@@ -337,7 +337,7 @@ def validate_NER(y_val, y_pred):
                     CORRECT_B_MISC += 1
                 else:
                     INCORRECT_B_MISC += 1
-                    # print ("B-MISC wrong: " + line_tokens[j] + ' classified as: ' + ner_result[j])
+                    print ("B-MISC wrong: word: "+ x_val[j]['word.lower()'] + "  " + y_val[j] + ' classified as: ' + y_pred[j])
 
             elif (y_pred[j] == 'I-MISC'):
                 if y_val[j] == 'I-MISC':
@@ -383,9 +383,9 @@ X_test = [sent2features(s) for s in test_sents]
 print(X_train[0], y_train[0])
 
 crf = sklearn_crfsuite.CRF(
-    algorithm='lbfgs',
-    c1=0.1,
-    c2=0.1,
+    algorithm='ap',
+    # c1=0.1,
+    #c2=0.1,
     max_iterations=100,
     all_possible_transitions=True
 )
@@ -398,49 +398,21 @@ print(labels)
 y_pred = crf.predict(X_val)
 actual_preds = crf.predict(X_test)
 writeOutput(actual_preds)
+print(metrics.flat_accuracy_score(y_val, y_pred,
+                       ))
+print(metrics.flat_precision_score(y_val, y_pred,
+                                   average='weighted', labels=labels))
+print(metrics.flat_recall_score(y_val, y_pred,
+                                average='weighted', labels=labels))
 print(metrics.flat_f1_score(y_val, y_pred,
                       average='weighted', labels=labels))
+
+
+
 y_flat_pred = []
 y_flat_val = []
+x_flat_val = []
 [y_flat_pred.extend(x) for x in y_pred]
 [y_flat_val.extend(x) for x in y_val]
-validate_NER(y_flat_val, y_flat_pred)
-
-X_new_train = []
-for sent in X_train:
-    new_sent = []
-    for word in sent:
-        new_sent.append(list(word.values()))
-    X_new_train.append(new_sent)
-
-for j in range(len(X_new_train)):
-    for i in range(len(X_new_train[j])):
-        X_new_train[j][i] = np.array(X_new_train[j][i])
-    X_new_train[j] = np.array(X_new_train[j]).reshape(len(X_new_train[j]),8)
-
-X_train = np.array(X_new_train)
-Y_train = np.array(y_train)
-#X_new_train = np.array([np.array(x.values()) for np.array(y) in X_train for x in y])
-
-X_new_val = []
-for sent in X_val:
-    new_sent = []
-    for word in sent:
-        new_sent.append(list(word.values()))
-    X_new_val.append(new_sent)
-
-for j in range(len(X_new_val)):
-    for i in range(len(X_new_val[j])):
-        X_new_val[j][i] = np.array(X_new_val[j][i])
-    X_new_val[j] = np.array(X_new_val[j]).reshape(len(X_new_val[j]),8)
-
-X_val = np.array(X_new_val)
-Y_val = np.array(y_val)
-
-
-model = ChainCRF()
-ssvm = FrankWolfeSSVM(model=model, C=.1, max_iter=10)
-print(X_train[0])
-print(X_train[0].shape)
-ssvm.fit(X_train, y_train)
-print(ssvm.score(X_val, y_val))
+[x_flat_val.extend(x) for x in X_val]
+validate_NER(y_flat_val, y_flat_pred, x_flat_val)
