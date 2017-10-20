@@ -1,6 +1,10 @@
 import sklearn_crfsuite
 from sklearn_crfsuite import scorers
 from sklearn_crfsuite import metrics
+from pystruct.models import ChainCRF
+from pystruct.learners import FrankWolfeSSVM
+import numpy as np
+
 def tokenize(split, filename="train.txt"):
     """
     Tokenizes the train file and returns
@@ -140,7 +144,7 @@ def word2features(sent, i):
     postag = sent[i][1]
 
     features = {
-        'bias': 1.0,
+        #'bias': 1.0,
         'word.lower()': word.lower(),
         'word[-3:]': word[-3:],
         'word[-2:]': word[-2:],
@@ -150,31 +154,31 @@ def word2features(sent, i):
         'postag': postag,
         'postag[:2]': postag[:2],
     }
-    if i > 0:
-        word1 = sent[i-1][0]
-        postag1 = sent[i-1][1]
-        features.update({
-            '-1:word.lower()': word1.lower(),
-            '-1:word.istitle()': word1.istitle(),
-            '-1:word.isupper()': word1.isupper(),
-            '-1:postag': postag1,
-            '-1:postag[:2]': postag1[:2],
-        })
-    else:
-        features['BOS'] = True
-
-    if i < len(sent)-1:
-        word1 = sent[i+1][0]
-        postag1 = sent[i+1][1]
-        features.update({
-            '+1:word.lower()': word1.lower(),
-            '+1:word.istitle()': word1.istitle(),
-            '+1:word.isupper()': word1.isupper(),
-            '+1:postag': postag1,
-            '+1:postag[:2]': postag1[:2],
-        })
-    else:
-        features['EOS'] = True
+    # if i > 0:
+    #     word1 = sent[i-1][0]
+    #     postag1 = sent[i-1][1]
+    #     features.update({
+    #         '-1:word.lower()': word1.lower(),
+    #         '-1:word.istitle()': word1.istitle(),
+    #         '-1:word.isupper()': word1.isupper(),
+    #         '-1:postag': postag1,
+    #         '-1:postag[:2]': postag1[:2],
+    #     })
+    # else:
+    #     features['BOS'] = True
+    #
+    # if i < len(sent)-1:
+    #     word1 = sent[i+1][0]
+    #     postag1 = sent[i+1][1]
+    #     features.update({
+    #         '+1:word.lower()': word1.lower(),
+    #         '+1:word.istitle()': word1.istitle(),
+    #         '+1:word.isupper()': word1.isupper(),
+    #         '+1:postag': postag1,
+    #         '+1:postag[:2]': postag1[:2],
+    #     })
+    # else:
+    #     features['EOS'] = True
 
     return features
 
@@ -257,6 +261,111 @@ def writeOutput(actual_preds, output_csv = "extension_output.csv"):
     # op_csv.write(O + "\n")
     op_csv.close()
 
+def validate_NER(y_val, y_pred):
+    """
+        Predicts NER for the test data
+        :param filename: test.txt
+        :param output_csv: output the file in the  required format
+        :return: None
+        """
+
+    CORRECT_B_PER = 0
+    CORRECT_I_PER = 0
+    CORRECT_B_ORG = 0
+    CORRECT_I_ORG = 0
+    CORRECT_B_LOC = 0
+    CORRECT_I_LOC = 0
+    CORRECT_B_MISC = 0
+    CORRECT_I_MISC = 0
+    CORRECT_O = 0
+    INCORRECT_B_PER = 0
+    INCORRECT_I_PER = 0
+    INCORRECT_B_ORG = 0
+    INCORRECT_I_ORG = 0
+    INCORRECT_B_LOC = 0
+    INCORRECT_I_LOC = 0
+    INCORRECT_B_MISC = 0
+    INCORRECT_I_MISC = 0
+    INCORRECT_O = 0
+
+
+    for j in range(len(y_pred)):
+
+        VALID_TOKENS = set(["B-PER", "B-LOC", "B-ORG", "B-MISC", "I-PER", "I-LOC", "I-ORG", "I-MISC"])
+
+        # New Version
+
+        if y_pred[j] in VALID_TOKENS:
+            if (y_pred[j] == 'B-PER'):
+                if y_val[j] == 'B-PER':
+                    CORRECT_B_PER += 1
+                else:
+                    INCORRECT_B_PER += 1
+
+            elif (y_pred[j] == 'I-PER'):
+                if y_val[j] == 'I-PER':
+                    CORRECT_I_PER += 1
+                else:
+                    INCORRECT_I_PER += 1
+
+            elif (y_pred[j] == 'B-LOC'):
+                if y_val[j] == 'B-LOC':
+                    CORRECT_B_LOC += 1
+                else:
+                    INCORRECT_B_LOC += 1
+
+            elif (y_pred[j] == 'I-LOC'):
+                if y_val[j] == 'I-LOC':
+                    CORRECT_I_LOC += 1
+                else:
+                    INCORRECT_I_LOC += 1
+
+            elif (y_pred[j] == 'B-ORG'):
+                if y_val[j] == 'B-ORG':
+                    CORRECT_B_ORG += 1
+                else:
+                    INCORRECT_B_ORG += 1
+
+            elif (y_pred[j] == 'I-ORG'):
+                if y_val[j] == 'I-ORG':
+                    CORRECT_I_ORG += 1
+                else:
+                    INCORRECT_I_ORG += 1
+
+            elif (y_pred[j] == 'B-MISC'):
+                if y_val[j] == 'B-MISC':
+                    CORRECT_B_MISC += 1
+                else:
+                    INCORRECT_B_MISC += 1
+                    # print ("B-MISC wrong: " + line_tokens[j] + ' classified as: ' + ner_result[j])
+
+            elif (y_pred[j] == 'I-MISC'):
+                if y_val[j] == 'I-MISC':
+                    CORRECT_I_MISC += 1
+                else:
+                    INCORRECT_I_MISC += 1
+            j += 1
+        else:
+            if y_val[j] == 'O':
+                CORRECT_O += 1
+            else:
+                INCORRECT_O += 1
+            j += 1
+
+    # print 'ST: ' + st
+    print ('B:')
+    print ('PER: Correct: ' + str(CORRECT_B_PER) + ', Incorrect: ' + str(INCORRECT_B_PER))
+    print ('LOC: Correct: ' + str(CORRECT_B_LOC) + ', Incorrect: ' + str(INCORRECT_B_LOC))
+    print ('ORG: Correct: ' + str(CORRECT_B_ORG) + ', Incorrect: ' + str(INCORRECT_B_ORG))
+    print ('MISC: Correct: ' + str(CORRECT_B_MISC) + ', Incorrect: ' + str(INCORRECT_B_MISC))
+
+    print ('I:')
+    print ('PER: Correct: ' + str(CORRECT_I_PER) + ', Incorrect: ' + str(INCORRECT_I_PER))
+    print ('LOC: Correct: ' + str(CORRECT_I_LOC) + ', Incorrect: ' + str(INCORRECT_I_LOC))
+    print ('ORG: Correct: ' + str(CORRECT_I_ORG) + ', Incorrect: ' + str(INCORRECT_I_ORG))
+    print ('MISC: Correct: ' + str(CORRECT_I_MISC) + ', Incorrect: ' + str(INCORRECT_I_MISC))
+    print ('O: Correct: ' + str(CORRECT_O) + ', Incorrect: ' + str(INCORRECT_O))
+
 #Main Calls
 
 train_sents, val_sents = tokenize(0.8, "train.txt")
@@ -291,3 +400,47 @@ actual_preds = crf.predict(X_test)
 writeOutput(actual_preds)
 print(metrics.flat_f1_score(y_val, y_pred,
                       average='weighted', labels=labels))
+y_flat_pred = []
+y_flat_val = []
+[y_flat_pred.extend(x) for x in y_pred]
+[y_flat_val.extend(x) for x in y_val]
+validate_NER(y_flat_val, y_flat_pred)
+
+X_new_train = []
+for sent in X_train:
+    new_sent = []
+    for word in sent:
+        new_sent.append(list(word.values()))
+    X_new_train.append(new_sent)
+
+for j in range(len(X_new_train)):
+    for i in range(len(X_new_train[j])):
+        X_new_train[j][i] = np.array(X_new_train[j][i])
+    X_new_train[j] = np.array(X_new_train[j]).reshape(len(X_new_train[j]),8)
+
+X_train = np.array(X_new_train)
+Y_train = np.array(y_train)
+#X_new_train = np.array([np.array(x.values()) for np.array(y) in X_train for x in y])
+
+X_new_val = []
+for sent in X_val:
+    new_sent = []
+    for word in sent:
+        new_sent.append(list(word.values()))
+    X_new_val.append(new_sent)
+
+for j in range(len(X_new_val)):
+    for i in range(len(X_new_val[j])):
+        X_new_val[j][i] = np.array(X_new_val[j][i])
+    X_new_val[j] = np.array(X_new_val[j]).reshape(len(X_new_val[j]),8)
+
+X_val = np.array(X_new_val)
+Y_val = np.array(y_val)
+
+
+model = ChainCRF()
+ssvm = FrankWolfeSSVM(model=model, C=.1, max_iter=10)
+print(X_train[0])
+print(X_train[0].shape)
+ssvm.fit(X_train, y_train)
+print(ssvm.score(X_val, y_val))
