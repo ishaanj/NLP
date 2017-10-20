@@ -170,6 +170,13 @@ def validate_NER(filename="test.txt"):
     all_lines = f.readlines()
     num_lines = len(all_lines) / 3
 
+    states = ["B-PER", "B-LOC", "B-ORG", "B-MISC", "I-PER", "I-LOC", "I-ORG", "I-MISC", "O"]
+    counts = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    states_dict = {}
+    for i in range(len(states)):
+        states_dict[states[i]] = counts[i]
+
     for i in range(int(0.8*num_lines), int(num_lines)):
         line_tokens = all_lines[3 * i].split()
         line_pos = all_lines[3 * i + 1].split()
@@ -177,10 +184,12 @@ def validate_NER(filename="test.txt"):
 
         # VALID_TOKENS = set(["PER","ORG","LOC","MISC"])
         VALID_TOKENS = set(["B-PER", "B-LOC", "B-ORG", "B-MISC", "I-PER", "I-LOC", "I-ORG", "I-MISC"])
+
         tagged_tokens = HMM(line_tokens, count_NER, count_NER_NER, count_wordType_NER)
         j = 1
         # New Version
         while (j < len(tagged_tokens)):
+            states_dict[ner_result[j]] += 1
             if tagged_tokens[j] in VALID_TOKENS:
                 if (tagged_tokens[j] == 'B-PER'):
                     if ner_result[j] == 'B-PER':
@@ -251,6 +260,29 @@ def validate_NER(filename="test.txt"):
     print ('ORG: Correct: ' + str(CORRECT_I_ORG) + ', Incorrect: ' + str(INCORRECT_I_ORG))
     print ('MISC: Correct: ' + str(CORRECT_I_MISC) + ', Incorrect: ' + str(INCORRECT_I_MISC))
     print ('O: Correct: ' + str(CORRECT_O) + ', Incorrect: ' + str(INCORRECT_O))
+
+    # print states_dict
+
+    correct_pred_b = CORRECT_B_PER + CORRECT_B_LOC + CORRECT_B_ORG + CORRECT_B_MISC
+    correct_pred_i = CORRECT_I_PER + CORRECT_I_LOC + CORRECT_I_ORG + CORRECT_I_MISC
+    incorrect_pred_b = INCORRECT_B_PER + INCORRECT_B_LOC + INCORRECT_B_ORG + INCORRECT_B_MISC
+    incorrect_pred_i = INCORRECT_I_PER + INCORRECT_I_LOC + INCORRECT_I_ORG + INCORRECT_I_MISC
+
+    correct_pred = correct_pred_b + correct_pred_i
+    total_pred = correct_pred_b + correct_pred_i + incorrect_pred_b + incorrect_pred_i
+    total_correct = states_dict['B-PER'] + states_dict['B-LOC'] + states_dict['B-ORG'] + states_dict['B-MISC'] + states_dict['I-PER'] + states_dict['I-LOC'] + states_dict['I-ORG'] + states_dict['I-MISC']
+
+    print correct_pred
+    print total_pred
+    print total_correct
+
+    precision = float(correct_pred) / total_pred
+    recall = float(correct_pred) / total_correct
+    f1 = 2.0*(precision * recall)/(precision + recall)
+
+    print precision
+    print recall
+    print f1
 
 def predict_NER(filename="test.txt", output_csv="output.csv"):
     """
