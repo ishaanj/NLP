@@ -3,6 +3,7 @@ import operator
 import numpy as np
 import math
 import numpy as np
+import sklearn.metrics as metrics
 
 #make uni and bigram
 def ngram (fs):
@@ -45,6 +46,7 @@ def gen_unseen_bigrams(unigrams, bigrams, possible_next_words):
             c = i+"|"+j
             if c not in bigrams:
                 bigrams[c] = 0
+    for i in unigram_tokens:
         for token in possible_next_words:
             if i not in possible_next_words[token]:
                 possible_next_words[token].add(i)
@@ -68,17 +70,65 @@ def get_probs(unigram, bigram, total_token_count, k_value = 0):
 
     return unigram_prob, bigram_prob
     
-def perplexity(uniprob, biprob, total_token_count):
-    curr = 0
-    for i in uniprob:
-        curr += -math.log(uniprob[i])
-    unipp = math.exp((1 / total_token_count) * curr)
-    curr = 0
-    for i in biprob:
-        curr += -math.log(biprob[i])
-    bipp = math.exp((1/total_token_count)*curr)
+def findk(fs, k_values, unigram, bigram, total_token_count, ispos=True):
+    mnprob = 1000000000
+    mxk = 0
+    total_dev_token_count = 0
+    for k_value in k_values:
+        vocab_size = len(unigram)
+        unigram_prob, bigram_prob = get_probs(unigram, bigram, total_token_count, k_value)
+        curprob = 0
+        unigram_curprob = 0
+        with open(fs, "r") as f:
+            current_token = "<s>"
+            for line in f:
+                line = line.strip()
+                line = line.lstrip(".-_,")
+                line = line.rstrip(".?!")
+                #line = line + " </s>"
+                listtokens = line.split()
+                for token in listtokens:
+                    total_dev_token_count += 1
+                    tkn = token
+                    if token not in unigram:
+                        tkn = "<unk>"
+                    unigram_curprob += -math.log(unigram_prob[tkn])
+                    if tkn + "|" + current_token in bigram_prob:
+                        curprob += -math.log(bigram_prob[tkn + "|" + current_token])
+                    else:
+                        prob = (k_value) / (unigram[current_token] + (k_value * vocab_size))
+                        curprob += -math.log(prob)
+                    current_token = tkn
+            if "</s>" + "|" + current_token in bigram_prob:
+                curprob += -math.log(bigram_prob["</s>" + "|" + current_token])
+            else:
+                prob = (k_value) / (unigram[current_token] + (k_value * vocab_size))
+                curprob += -math.log(prob)
+            # print("k_value: %s curprob: %s"%(k_value, curprob))
+            if curprob < mnprob:
+                mnprob = curprob
+                mxk = k_value
+    print()
+    if ispos:
+        print("Positive findk results:")
+    else:
+        print("Negative findk results:")
+    print("Best k_value: %s sum negative log prob: %s"%(mxk, mnprob))
+    
+    return mxk, mnprob, total_dev_token_count, unigram_curprob
+    
+def perplexity(mnprob, total_dev_token_count, unigram_curprob, ispos=True):
+    perplexity = math.exp(mnprob / total_dev_token_count)
+    unigram_perplexity = math.exp(unigram_curprob / total_dev_token_count)
+    print()
+    if ispos:
+        print("Positive Bigram Perplexity: ",perplexity)
+        print("Positive Unigram Perplexity: ",unigram_perplexity)
+    else:
+        print("Negative Bigram Perplexity: ",perplexity)
+        print("Negative Unigram Perplexity: ",unigram_perplexity)
 
-    return unipp, bipp
+    return perplexity
     
 def substitute_unks(unigrams, bigrams, possible_next_words):
     unk_tokens = set()
@@ -187,8 +237,8 @@ def evaluni(line, unigram):
             x += math.log(unigram[word])
     return math.exp(x)
 
-def evalbi(line, unigram, bigram):
-    x = 1
+def evalbi(listtokens, unigram, bigram, unigram_cnts, k_value):
+    """x = 1
     words = ['<s>']
     words.extend(line.split(" "))
     words.append('</s>')
@@ -197,7 +247,91 @@ def evalbi(line, unigram, bigram):
             words[i] = '<unk>'
     for idx, word in enumerate(words[:-1]):
             x += math.log(bigram[words[idx+1]+'|'+word])
-    return math.exp(x)
+    return math.exp(x)"""
+    prob = 0
+    current_token = "<s>"
+    vocab_size = len(unigram)
+    
+    for token in listtokens:
+        tkn = token
+        if token not in unigram:
+            tkn = "<unk>"
+        if tkn + "|" + current_token in bigram:
+            prob += -math.log(bigram[tkn + "|" + current_token])
+        else:
+            prob += -math.log((k_value) / (unigram_cnts[current_token] + (k_value * vocab_size)))
+        current_token = tkn
+    if "</s>" + "|" + current_token in bigram:
+        prob += -math.log(bigram["</s>" + "|" + current_token])
+    else:
+        prob += -math.log((k_value) / (unigram_cnts[current_token] + (k_value * vocab_size)))
+    
+    return math.exp(prob)
+    
+def generate_sentences(unigram, bigram, total_token_count, possible_next_words, ispos=True):
+
+    #calculate probabilities
+    uniprob, biprob = get_probs(unigram, bigram, total_token_count)
+    
+    #Set number of sentences to generate
+    num_sentences = 3
+    #Set Upper bound on the length of the sentences to generate
+    length_bound = 10
+    
+    #Print Unigram Sentences
+    print()
+    if ispos:
+        print ("Positive Unigram Sentences:")
+    else:
+        print ("Negative Unigram Sentences:")
+    print()
+    for sentence in unigram_sentence_generator(num_sentences, length_bound, uniprob):
+        print(sentence)
+
+    #Print Bigram Sentences
+    print()
+    if ispos:
+        print ("Positive Bigram Sentences:")
+    else:
+        print ("Negative Bigram Sentences:")
+    print()
+    for sentence in bigram_sentence_generator(num_sentences, length_bound, biprob, possible_next_words):
+        print(sentence)
+
+    #Print Positive Bigram Sentences with seeding
+
+    print()
+    if ispos:
+        print ("Positive Bigram Sentences with seeding:")
+    else:
+        print ("Negative Bigram Sentences with seeding:")
+    print()
+    for sentence in bigram_sentence_generator(1, length_bound, biprob, possible_next_words, "The movie was"):
+        print(sentence)
+    for sentence in bigram_sentence_generator(1, length_bound, biprob, possible_next_words, "I am"):
+        print(sentence)
+    for sentence in bigram_sentence_generator(1, length_bound, biprob, possible_next_words, "The film"):
+        print(sentence)
+        
+def classification_language_model(ft, unipos, bipos, unineg, bineg, kpos, kneg, total_token_count_pos, total_token_count_neg):
+    id = []
+    pred = []
+    unipos_prob, bipos_prob = get_probs(unipos, bipos, total_token_count_pos, kpos)
+    unineg_prob, bineg_prob = get_probs(unineg, bineg, total_token_count_neg, kneg)
+    for idx, line in enumerate(ft):
+        id.append(idx+1)
+        
+        line = line.strip()
+        line = line.lstrip(".-_,")
+        line = line.rstrip(".?!")
+        listtokens = line.split()
+        
+        if evalbi(listtokens, unipos_prob, bipos_prob, unipos, kpos) < evalbi(listtokens, unineg_prob, bineg_prob, unineg, kneg):
+            pred.append(1)
+        else:
+            pred.append(0)
+    # np.savetxt("unipred.csv", np.column_stack((id, pred)), delimiter=",", fmt='%s', header='Id,Prediction', comments='')
+    return pred
 
 #open file
 filepath = os.path.abspath(".")
@@ -211,6 +345,9 @@ unineg, bineg, total_token_count_neg, possible_next_words_neg = ngram(fn)
 fp.close()
 fn.close()
 
+generate_sentences(unipos, bipos, total_token_count_pos, possible_next_words_pos, True)
+generate_sentences(unineg, bineg, total_token_count_neg, possible_next_words_neg, False)
+
 #Replace unks
 unipos, bipos, possible_next_words_pos = substitute_unks(unipos, bipos, possible_next_words_pos)
 unineg, bineg, possible_next_words_neg = substitute_unks(unineg, bineg, possible_next_words_neg)
@@ -219,16 +356,30 @@ unineg, bineg, possible_next_words_neg = substitute_unks(unineg, bineg, possible
 # unipos, bipos, possible_next_words_pos = gen_unseen_bigrams(unipos, bipos, possible_next_words_pos)
 # unineg, bineg, possible_next_words_neg = gen_unseen_bigrams(unineg, bineg, possible_next_words_neg)
 
-fp = filepath + "\SentimentDataset\Dev\pos.txt"
-fn = filepath + "\SentimentDataset\Dev\\"+"neg.txt"
+# fp = filepath + "\SentimentDataset\Dev\pos.txt"
+# fn = filepath + "\SentimentDataset\Dev\\"+"neg.txt"
 
 #find k for add k smoothing
-kpos = 0.1
-kneg = 0.1
+kpos_values = [0.00001, 0.0001, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018, 0.019, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+kneg_values = [0.00001, 0.0001, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018, 0.019, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+kpos, mnprob_pos, total_dev_token_count_pos, unipos_curprob = findk(fp, kpos_values, unipos, bipos, total_token_count_pos, True)
+kneg, mnprob_neg, total_dev_token_count_neg, unineg_curprob = findk(fn, kneg_values, unineg, bineg, total_token_count_neg, False)
+
+#Find Perplexity
+# perplexity_pos = perplexity(mnprob_pos, total_dev_token_count_pos, unipos_curprob, True)
+# perplexity_neg = perplexity(mnprob_neg, total_dev_token_count_neg, unineg_curprob, False)
+
+# ft = open(filepath + "\SentimentDataset\Test\\"+"test.txt", 'r')
+
+# ftp = open(filepath + "\SentimentDataset\Dev\\"+"pos.txt", 'r')
+# ftn = open(filepath + "\SentimentDataset\Dev\\"+"neg.txt", 'r')
+# predpos = classification_language_model(ftp, unipos, bipos, unineg, bineg, kpos, kneg, total_token_count_pos, total_token_count_neg)
+# predneg = classification_language_model(ftn, unipos, bipos, unineg, bineg, kpos, kneg, total_token_count_pos, total_token_count_neg)
 
 #get probabilities
-unipos, bipos = get_probs(unipos, bipos, total_token_count_pos, kpos)
-unineg, bineg = get_probs(unineg, bineg, total_token_count_neg, kneg)
+#unipos, bipos = get_probs(unipos, bipos, total_token_count_pos, kpos)
+#unineg, bineg = get_probs(unineg, bineg, total_token_count_neg, kneg)
 
 # ppposu, ppposb = perplexity(unipos, bipos, total_token_count_pos)
 # ppnegu, ppnegb = perplexity(unineg, bineg, total_token_count_neg)
@@ -238,69 +389,27 @@ unineg, bineg = get_probs(unineg, bineg, total_token_count_neg, kneg)
 # print("Perplexity Negative Unigram: ", ppnegu)
 # print("Perplexity Negative Bigram: ", ppnegb)
 
-# #Set number of sentences to generate
-# num_sentences = 3
-# #Set Upper bound on the length of the sentences to generate
-# length_bound = 10
-#
-# #Print Positive Unigram Sentences
-# print()
-# print ("Positive Unigram Sentences:")
-# print()
-# for sentence in unigram_sentence_generator(num_sentences, length_bound, unipos):
-#     print(sentence)
-#
-# #Print Negative Unigram Sentences
-# print()
-# print ("Negative Unigram Sentences:")
-# print()
-# for sentence in unigram_sentence_generator(num_sentences, length_bound, unineg):
-#     print(sentence)
-#
-# #Print Positive Bigram Sentences
-# print()
-# print ("Positive Bigram Sentences:")
-# print()
-# for sentence in bigram_sentence_generator(num_sentences, length_bound, bipos, possible_next_words_pos):
-#     print(sentence)
-#
-# #Print Negative Bigram Sentences
-# print()
-# print ("Negative Bigram Sentences:")
-# print()
-# for sentence in bigram_sentence_generator(num_sentences, length_bound, bineg, possible_next_words_neg):
-#     print(sentence)
-#
-# #Print Positive Bigram Sentences with seeding
-#
-# print()
-# print ("Positive Bigram Sentences with seeding:")
-# print()
-# for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "The movie was"):
-#     print(sentence)
-# for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "I am"):
-#     print(sentence)
-# for sentence in bigram_sentence_generator(1, length_bound, bipos, possible_next_words_pos, "The film"):
-#     print(sentence)
-#
-# #Print Negative Bigram Sentences with seeding
-# print()
-# print ("Negative Bigram Sentences with seeding:")
-# print()
-# for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "The movie was"):
-#     print(sentence)
-# for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "I am"):
-#     print(sentence)
-# for sentence in bigram_sentence_generator(1, length_bound, bineg, possible_next_words_neg, "The film"):
-#     print(sentence)
+# yval = [0 for _ in predpos]
+# yval2 = [1 for _ in predneg]
+# predpos.extend(predneg)
+# yval.extend(yval2)
 
-ft = open(filepath + "\SentimentDataset\Test\\"+"test.txt", 'r')
-id = []
-pred = []
-for idx, line in enumerate(ft):
-    id.append(idx+1)
-    if evalbi(line, unipos, bipos) < evalbi(line, unineg, bineg):
-        pred.append(1)
-    else:
-        pred.append(0)
-np.savetxt("unipred.csv", np.column_stack((id, pred)), delimiter=",", fmt='%s', header='Id,Prediction', comments='')
+# ftp = open(filepath + "\SentimentDataset\Dev\\"+"pos.txt", 'r')
+# ftn = open(filepath + "\SentimentDataset\Dev\\"+"neg.txt", 'r')
+# yval = []
+# pred = []
+# for line in ftp:
+#     if evaluni(line, unipos) > evaluni(line, unineg):
+#         pred.append(0)
+#     else:
+#         pred.append(1)
+#     yval.append(0)
+# for line in ftn:
+#     if evaluni(line, unipos) > evaluni(line, unineg):
+#         pred.append(0)
+#     else:
+#         pred.append(1)
+#     yval.append(1)
+#
+# print("\nAccuracy: ", metrics.accuracy_score(yval, pred))
+# print("Classified: ", metrics.accuracy_score(yval, pred, normalize=False), " out of ", len(yval), " samples correctly")
