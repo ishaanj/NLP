@@ -77,17 +77,22 @@ def removeStops(sent, isString = False):
             newsent += i + " "
     return newsent.rstrip()
 
-def predict(bag, sent):
+def predict(bag, sent, single = False):
     poss = []
 
     for ele in sent.split():
         if ele not in bag:
             poss.append(ele)
 
+
     if len(poss) > 0:
-        return poss
+        if single:
+            return random.choice(poss)
+        return " ".join(poss)
     else:
-        return sent.split()
+        if single:
+            return sent.split()[0]
+        return sent
 
 def solve_question(title, context, normalized_context, qa):
 
@@ -119,7 +124,7 @@ def solve_question(title, context, normalized_context, qa):
     # print(highest_similarity_score)
     # print(highest_similarity_sentence)
     # print(id)
-    preds[id] = predict(question, highest_similarity_sentence)
+    preds[id] = predict(question, highest_similarity_sentence, False)
     print(id," : ", preds[id])
 
     # for ele in context_arr:
@@ -151,7 +156,7 @@ def solve_question(title, context, normalized_context, qa):
 
 
 preds = {}
-question_data = read_from_file("testing.json")
+question_data = read_from_file("development.json")
 answer_questions(question_data)
 
 with open('predicttest.json', 'w') as fp:
