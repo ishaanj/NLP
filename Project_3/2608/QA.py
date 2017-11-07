@@ -15,13 +15,16 @@ def read_from_file(filename):
 
 def answer_questions(question_data):
     for essay in question_data['data']:
+        print('next essay')
         title = essay['title']
         for paragraph in essay['paragraphs']:
             context = paragraph['context']
             normalized_context = normalize_context(context)
+            normalized_context = removeStops(normalized_context.split())
             for qa in paragraph['qas']:
                 # bag_of_word_vectors = get_bag_of_word_vectors(normalized_context)
-                solve_question(title, context, normalized_context, qa)
+                normalized_qa = normalize_context(qa['question'])
+                solve_question(title, context, normalized_context, qa, normalized_qa)
                 # print(answers)
 
 def normalize_context(s):
@@ -81,29 +84,32 @@ def removeStops(sent, isString = False):
     return newsent.rstrip()
 
 def predict(bag, sent, spacy_sent, single = False):
-    poss = []
+    # poss = []
     spacy_poss = []
 
-    for ele in sent.split():
-        if ele not in bag:
-            poss.append(ele)
+    # for ele in sent.split():
+    #     if ele not in bag:
+    #         poss.append(ele)
 
     for ele in spacy_sent.split():
         if ele not in bag:
             spacy_poss.append(ele)
 
-    if len(poss) > 0 and len(spacy_poss) > 0:
+    # if len(poss) > 0 and len(spacy_poss) > 0:
+    if len(spacy_poss) > 0:
         if single:
-            return random.choice(poss), random.choice(spacy_poss)
-        return " ".join(poss), " ".join(spacy_poss)
+            # return random.choice(poss), random.choice(spacy_poss)
+            return random.choice(spacy_poss)
+        # return " ".join(poss), " ".join(spacy_poss)
+        return " ".join(spacy_poss)
     else:
         if single:
-            return sent.split()[0], spacy_sent.split()[0]
-        return sent, spacy_sent
+            # return sent.split()[0], spacy_sent.split()[0]
+            return spacy_sent.split()[0]
+        # return sent, spacy_sent
+        return spacy_sent
 
-def solve_question(title, context, normalized_context, qa):
-
-    question = normalize_context(qa['question'])
+def solve_question(title, context, normalized_context, qa, normalized_qa):
     id = qa['id']
 
     spacy_highest_similarity_score = None
@@ -112,25 +118,26 @@ def solve_question(title, context, normalized_context, qa):
     highest_similarity_score = None
     highest_similarity_sentence = None
 
-    context_arr = normalized_context.split()
+    # context_arr = normalized_context.split()
     window = ""
 
-    question = removeStops(question, True)
-    bag = bag_question(question)
+    question = removeStops(normalized_qa, True)
+    # bag = bag_question(question)
     spacy_bag = spacy_nlp(question)
-    bag_sent = context_arr[0:10]
-    for i in range(len(context_arr) - 10):
-        window = removeStops(bag_sent)
+    window = normalized_context[0:10]
+    for i in range(0, len(normalized_context) - 10, 10):
+        # window = removeStops(bag_sent)
         spacy_window = spacy_nlp(window)
-        sim = get_similarity(bag, window)
+        # sim = get_similarity(bag, window)
         spacy_sim = spacy_bag.similarity(spacy_window)
+        # print(window, ",", spacy_window)
 
-        if highest_similarity_score is None or highest_similarity_score < sim:
-            highest_similarity_score = sim
-            highest_similarity_sentence = window
-        if highest_similarity_score is not None and highest_similarity_score == sim and len(window) < len(highest_similarity_sentence):
-            highest_similarity_score = sim
-            highest_similarity_sentence = window
+        # if highest_similarity_score is None or highest_similarity_score < sim:
+        #     highest_similarity_score = sim
+        #     highest_similarity_sentence = window
+        # if highest_similarity_score is not None and highest_similarity_score == sim and len(window) < len(highest_similarity_sentence):
+        #     highest_similarity_score = sim
+        #     highest_similarity_sentence = window
 
         if spacy_highest_similarity_score is None or spacy_highest_similarity_score < spacy_sim:
             spacy_highest_similarity_score = spacy_sim
@@ -139,10 +146,11 @@ def solve_question(title, context, normalized_context, qa):
             spacy_highest_similarity_score = spacy_sim
             spacy_highest_similarity_sentence = window
 
-        del bag_sent[0]
-        bag_sent.append(context_arr[i+10])
+        # del window
+        window = normalized_context[i:i+10]
 
-    preds[id], spacy_preds[id] = predict(question, highest_similarity_sentence, spacy_highest_similarity_sentence, False)
+    #preds[id],
+    spacy_preds[id] = predict(question, highest_similarity_sentence, spacy_highest_similarity_sentence, False)
     # print(id," : ", preds[id])
     # print(id, " : ", spacy_preds[id])
 
