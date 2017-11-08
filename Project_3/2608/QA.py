@@ -181,6 +181,12 @@ def solve_question(title, context, normalized_context, qa, normalized_qa):
     #
     # return best_word_vector
 
+def get_NER(string_data):
+    from stanfordcorenlp import StanfordCoreNLP
+    nlp = StanfordCoreNLP('http://corenlp.run', port=80)
+    tags = nlp.ner(string_data)
+    # List of tuples
+    return tags
 
 preds = {}
 spacy_preds = {}
