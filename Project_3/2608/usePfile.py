@@ -35,14 +35,18 @@ def spacy_me(sentence):
                      sentence.ents]
     return sentence_ents
 
+
 def rule_based_classify(questiondoc, sentence_ents, candidate_sentence):
+    """
+    Rules for classificatio of answer based on question
+    :param questiondoc:
+    :param sentence_ents:
+    :param candidate_sentence:
+    :return: if rule is found, then return the matching NER words, else return empty string
+    """
     prediction = ''
-    if "when" in str(questiondoc).lower() or "in" == str(questiondoc[0]).lower():
-        for ent in sentence_ents:
-            if ent[3].lower() == "date" or ent[3].lower() == "time":
-                prediction = candidate_sentence[ent[1]:ent[2]]
-                break
-    elif "who" in str(questiondoc).lower() or "whom" in str(questiondoc).lower():
+
+    if "who" in str(questiondoc).lower() or "whom" in str(questiondoc).lower():
         for ent in sentence_ents:
             if ent[3].lower() == "person" or ent[3].lower() == "org" or ent[3].lower() == "facility":
                 prediction = candidate_sentence[ent[1]:ent[2]]
@@ -78,14 +82,21 @@ def rule_based_classify(questiondoc, sentence_ents, candidate_sentence):
             if ent[3].lower() == "percent":
                 prediction = candidate_sentence[ent[1]:ent[2]]
                 break
-    else:
-        prediction = candidate_sentence
-        prediction = normalize_context(prediction)
+    elif "when" in str(questiondoc).lower() or "in" == str(questiondoc[0]).lower():
+        for ent in sentence_ents:
+            if ent[3].lower() == "date" or ent[3].lower() == "time":
+                prediction = candidate_sentence[ent[1]:ent[2]]
+                break
 
     return prediction
 
 
 def classify_write_use_file(filename):
+    """
+    Only based on rules to classify the answer
+    :param filename: Test or Dev
+    :return: Prediction written to the JSON
+    """
     question_type = {}
 
     with open(filename) as data_file:
@@ -127,12 +138,25 @@ def classify_write_use_file(filename):
             json.dump(PREDICTIONS, write_file)
 
 def classify_write_use_pickle(maxsim_sentence, questiondoc):
+    """
+    Use the pickle file to get answers
+    :param maxsim_sentence: maximum similarity sentence
+    :param questiondoc: question doc
+    :return:
+    """
     mxsim_sentence_doc = NLP(maxsim_sentence)
     sentence_entities = spacy_me(mxsim_sentence_doc)
     return rule_based_classify(questiondoc, sentence_entities, maxsim_sentence)
 
 
 def get_pos(intent, sentence):
+    """
+    Apply spacy and get the POS tags
+    :param intent:
+    :param sentence:
+    :return: if answer is found return it, else return empty string
+    """
+
     doc = NLP(sentence)
     answer = []
     if intent in ["PERSON", "PRODUCT", "LOC", "ABBR", "ORG"]:
@@ -141,17 +165,28 @@ def get_pos(intent, sentence):
                 answer.append(token.text)
     elif intent == "QUANTITY":
         for token in doc:
-            if token.pos_ in ["NUM", "NOUN"]:
+            if token.pos_ == "NUM":
                 answer.append(token.text)
 
     return " ".join(answer)
 
 
 def NER_Span(pickle_dict):
+    """
+    The main driver function, that tries to
+    Answer based on intent
+    Then try answering based on rule classification
+    Answering based on POS Tagging
+    If not found return whole candidate sentence without the context words
+    :param pickle_dict:
+    :return: Answer prediction dictionary
+    """
     result_dict = {}
     i = 0
+    # Mapping pickle file to spacy's NER mapping
+    intdict = {"NUM": "QUANTITY", "HUM": "PERSON", "ENTY":"PRODUCT"}
     for qid in pickle_dict:
-        print("DOING: %d" %i)
+        print("On index: %d" %i)
         i+=1
         tuple = pickle_dict[qid]
         sentence = tuple[0]
@@ -159,20 +194,22 @@ def NER_Span(pickle_dict):
         question = tuple[2]
         doc = NLP(sentence)
         answerFound = False
-        if intent == 'NUM':
-            intent = 'QUANTITY'
-        if intent == 'HUM':
-            intent = 'PERSON'
-        if intent == 'ENTY':
-            intent = 'PRODUCT'
-        for ent in doc.ents:
-            entityLabel = ent.label_
-            if entityLabel == 'GPE' or entityLabel == 'FACILITY':
+        if intent in intdict:
+            intent = intdict[intent]
+
+        # For similar NER Tags
+        for e in doc.ents:
+            entityLabel = e.label_
+            if entityLabel == 'GPE':
+                entityLabel = 'LOC'
+            if entityLabel == 'FACILITY':
                 entityLabel = 'LOC'
             if entityLabel == intent:
-                result_dict[qid] = sentence[ent.start_char:ent.end_char+1]
+                # include the +1 in python
+                result_dict[qid] = sentence[e.start_char:e.end_char+1]
                 answerFound = True
                 break
+
         if not answerFound:
             # TODO: Use rule based system
             answer = classify_write_use_pickle(sentence, question)
@@ -196,11 +233,13 @@ if __name__ == "__main__":
     print("Started %s" % str(time.ctime()))
 
     filename = 'PickleTest.json'
+    # filename = 'PickleDev.json'
     with open(filename, 'r') as pickle_file:
         data = json.load(pickle_file)
         result_dict = NER_Span(data)
 
-        write_file = open('2_'+ filename, 'w')
+        write_file = open('Answer_Test.json', 'w')
+        # write_file = open('Answer_Dev.json', 'w')
         json.dump(result_dict, write_file)
 
     # classify_write_use_file('testing.json')
