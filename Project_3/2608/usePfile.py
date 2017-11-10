@@ -132,6 +132,21 @@ def classify_write_use_pickle(maxsim_sentence, questiondoc):
     return rule_based_classify(questiondoc, sentence_entities, maxsim_sentence)
 
 
+def get_pos(intent, sentence):
+    doc = NLP(sentence)
+    answer = []
+    if intent in ["PERSON", "PRODUCT", "LOC", "ABBR", "ORG"]:
+        for token in doc:
+            if token.pos_ in ["PROPN", "NOUN"]:
+                answer.append(token.text)
+    elif intent == "QUANTITY":
+        for token in doc:
+            if token.pos_ in ["NUM", "NOUN"]:
+                answer.append(token.text)
+
+    return " ".join(answer)
+
+
 def NER_Span(pickle_dict):
     result_dict = {}
     i = 0
@@ -144,42 +159,48 @@ def NER_Span(pickle_dict):
         question = tuple[2]
         doc = NLP(sentence)
         answerFound = False
-        if (intent == 'NUM'):
+        if intent == 'NUM':
             intent = 'QUANTITY'
-        if (intent == 'HUM'):
+        if intent == 'HUM':
             intent = 'PERSON'
-        if (intent == 'ENTY'):
+        if intent == 'ENTY':
             intent = 'PRODUCT'
         for ent in doc.ents:
             entityLabel = ent.label_
-            if(entityLabel == 'GPE' or entityLabel == 'FACILITY'):
+            if entityLabel == 'GPE' or entityLabel == 'FACILITY':
                 entityLabel = 'LOC'
-            if(entityLabel == intent):
+            if entityLabel == intent:
                 result_dict[qid] = sentence[ent.start_char:ent.end_char+1]
                 answerFound = True
                 break
-        if(not answerFound):
-            # Use rule based system
+        if not answerFound:
+            # TODO: Use rule based system
             answer = classify_write_use_pickle(sentence, question)
             if answer:
                 result_dict[qid] = answer
-            else:
-                # TODO: Can use POS here
-                result_dict[qid] = normalize_context(sentence)
+                answerFound = True
+        if not answerFound:
+            # TODO: Can use POS here
+            answer = get_pos(intent, sentence)
+            if answer:
+                result_dict[qid] = answer
+                answerFound = True
+        if not answerFound:
+            result_dict[qid] = normalize_context(sentence)
 
     return result_dict
 
 
 if __name__ == "__main__":
     start_time = time.time()
-    print("Started %s" %str(time.ctime()))
+    print("Started %s" % str(time.ctime()))
 
     filename = 'PickleTest.json'
     with open(filename, 'r') as pickle_file:
         data = json.load(pickle_file)
         result_dict = NER_Span(data)
 
-        write_file = open('xxx_'+ filename, 'w')
+        write_file = open('2_'+ filename, 'w')
         json.dump(result_dict, write_file)
 
     # classify_write_use_file('testing.json')
