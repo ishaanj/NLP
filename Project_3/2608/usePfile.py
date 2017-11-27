@@ -31,8 +31,9 @@ def spacy_me(sentence):
     :param sentence:
     :return: sentence entity list
     """
-    sentence_ents = [(ent.text, int(ent.start_char), int(ent.end_char), ent.label_) for ent in
-                     sentence.ents]
+    for ent in sentence.ents:
+        sentence_ents = [(ent.text, int(ent.start_char), int(ent.end_char), ent.label_)]
+
     return sentence_ents
 
 
@@ -100,7 +101,7 @@ def classify_write_use_file(filename):
     question_type = {}
 
     with open(filename) as data_file:
-        with open('new_2608_' + filename, 'w') as write_file:
+        with open('Inten_' + filename, 'w') as write_file:
             data = json.load(data_file)
             PREDICTIONS = {}
             for data in data['data']:
@@ -136,6 +137,7 @@ def classify_write_use_file(filename):
 
                         PREDICTIONS[id] = answer
             json.dump(PREDICTIONS, write_file)
+
 
 def classify_write_use_pickle(maxsim_sentence, questiondoc):
     """
@@ -232,15 +234,20 @@ if __name__ == "__main__":
     start_time = time.time()
     print("Started %s" % str(time.ctime()))
 
-    filename = 'PickleTest.json'
-    # filename = 'PickleDev.json'
+    filename = 'PickleDev.json'
     with open(filename, 'r') as pickle_file:
         data = json.load(pickle_file)
         result_dict = NER_Span(data)
-
-        write_file = open('Answer_Test.json', 'w')
-        # write_file = open('Answer_Dev.json', 'w')
+        write_file = open('Answer_Dev.json', 'w')
         json.dump(result_dict, write_file)
 
-    # classify_write_use_file('testing.json')
+    filename = 'PickleTest.json'
+    with open(filename, 'r') as pickle_file:
+        data = json.load(pickle_file)
+        result_dict = NER_Span(data)
+        write_file = open('Answer_Test.json', 'w')
+        json.dump(result_dict, write_file)
+
+    classify_write_use_file('testing.json')
+    classify_write_use_file('development.json')
     print("--- %s min ---" % ((time.time() - start_time) / 60))
