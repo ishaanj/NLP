@@ -4,7 +4,7 @@ import pickle
 from time import clock
 
 import dynet_config
-dynet_config.set(random_seed=42, autobatch=1)
+dynet_config.set(random_seed=42, autobatch=1, mem=1024)
 
 import dynet as dy
 
@@ -55,6 +55,7 @@ class DANClassifier(object):
         for _, sent in batch:
 
             sent_embed = [dy.lookup(self.embed, w) for w in sent]
+            sent_embed = [dy.dropout(w,0.5) for w in sent_embed]
             sent_embed = dy.average(sent_embed)
 
             # hid = tanh(b + W * sent_embed)
@@ -89,21 +90,23 @@ class DANClassifier(object):
         y_true = [y for y, _ in sents]
 
         correct = 0
-
-        for idx, p in probas:
-            if p == y_true[idx]:
-                correct += 1
+        predicted = [p > 0.5 for p in probas]
+        correct+=  sum([predicted[i] == y_true[i] for i in range(len(predicted))])
+        # i = 0
+        # for i in range(len(predicted)):
+        #     if predicted[i] == y_true[i]:
+        #         correct+=1
 
         # FIXME: count the number of correct predictions here
-
         return correct
+
 
 if __name__ == '__main__':
 
-    with open(os.path.join('processed', 'train_ix.pkl'), 'rb') as f:
+    with open(os.path.join('..\processed', 'train_ix.pkl'), 'rb') as f:
         train_ix = pickle.load(f)
 
-    with open(os.path.join('processed', 'valid_ix.pkl'), 'rb') as f:
+    with open(os.path.join('..\processed', 'valid_ix.pkl'), 'rb') as f:
         valid_ix = pickle.load(f)
 
     # initialize dynet parameters and learning algorithm
