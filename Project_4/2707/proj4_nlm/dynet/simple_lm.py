@@ -5,16 +5,17 @@ import os
 import pickle
 from time import clock
 from math import exp
-
+from matplotlib import pyplot as plt
+from matplotlib import patches
 import dynet_config
 dynet_config.set(random_seed=42, autobatch=1)
-
+dynet_config.set_gpu(True)
 import dynet as dy
 
 MAX_EPOCHS = 20
 BATCH_SIZE = 32
 HIDDEN_DIM = 32
-USE_UNLABELED = False
+USE_UNLABELED = True
 VOCAB_SIZE = 4748
 
 
@@ -89,13 +90,19 @@ class SimpleNLM(object):
 
 if __name__ == '__main__':
 
-    with open(os.path.join('processed', 'train_ix.pkl'), 'rb') as f:
+    red_patch = patches.Patch(color='red', label='Training')
+    blue_patch = patches.Patch(color='blue', label='Validation')
+    plt.legend(handles=[red_patch, blue_patch])
+
+    with open(os.path.join('..\processed', 'train_ix.pkl'), 'rb') as f:
         train_ix = pickle.load(f)
 
     if USE_UNLABELED:
-        __FIXME__
+        with open(os.path.join('..\processed', 'unlab_ix.pkl'), 'rb') as f:
+            train_ix.extend(pickle.load(f))
 
-    with open(os.path.join('processed', 'valid_ix.pkl'), 'rb') as f:
+
+    with open(os.path.join('..\processed', 'valid_ix.pkl'), 'rb') as f:
         valid_ix = pickle.load(f)
 
     # initialize dynet parameters and learning algorithm
@@ -139,6 +146,9 @@ if __name__ == '__main__':
             exp(valid_loss / n_valid_words)
             ))
 
+        plt.scatter(x=it, y=exp(total_loss / n_train_words), color='red', s=100)
+        plt.scatter(x=it, y=exp(valid_loss / n_valid_words), color='blue', s=100)
+    plt.show()
     # FIXME: make sure to update filenames when implementing ngram models
     fn = "embeds_baseline_lm"
     if USE_UNLABELED:

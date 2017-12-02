@@ -5,7 +5,7 @@ from time import clock
 
 import dynet_config
 dynet_config.set(random_seed=42, autobatch=1, mem=1024)
-
+dynet_config.set_gpu(True)
 import dynet as dy
 
 MAX_EPOCHS = 20
