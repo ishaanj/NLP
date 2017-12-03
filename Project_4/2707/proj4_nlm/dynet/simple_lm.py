@@ -17,7 +17,7 @@ N_GRAM_SIZE = 2
 MAX_EPOCHS = 20
 BATCH_SIZE = 32
 HIDDEN_DIM = 32
-USE_UNLABELED = True
+USE_UNLABELED = False
 VOCAB_SIZE = 4748
 
 
@@ -60,17 +60,19 @@ class SimpleNLM(object):
 
         losses = []
         for _, sent in batch:
-            for i in range(2, len(sent)):
+            for i in range(N_GRAM_SIZE, len(sent)):
 
-                prev_word_2_ix = sent[i - 2]
-                prev_word_ix = sent[i - 1]
+                prev_words = []
+                for j in range(N_GRAM_SIZE):
+                    prev_words.append(sent[j+i-1])
                 curr_word_ix = sent[i]
 
-                ctx_2 = dy.lookup(self.embed, prev_word_2_ix)
-                ctx = dy.lookup(self.embed, prev_word_ix)
-                # print(ctx.dim())
-                ctx = dy.concatenate([ctx_2, ctx])
-                # print(ctx.dim())
+                ctx = dy.lookup(self.embed, prev_words[0])
+                for ix, k in enumerate(prev_words):
+                    if ix == 0:
+                        continue
+                    ctx_2 = dy.lookup(self.embed, k)
+                    ctx = dy.concatenate([ctx, ctx_2])
 
                 # hid is the hidden layer output, size=hidden_size
                 # compute b_hid + W_hid * ctx, but faster
@@ -158,7 +160,7 @@ if __name__ == '__main__':
         plt.scatter(x=it, y=exp(valid_loss / n_valid_words), color='blue', s=100)
     plt.show()
     # FIXME: make sure to update filenames when implementing ngram models
-    fn = "embeds_baseline_lm"
+    fn = "embeds_baseline_lm_" + str(N_GRAM_SIZE+1) + "gram"
     if USE_UNLABELED:
         fn += "_unlabeled"
 
