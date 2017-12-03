@@ -12,6 +12,8 @@ dynet_config.set(random_seed=42, autobatch=1)
 dynet_config.set_gpu(True)
 import dynet as dy
 
+N_GRAM_SIZE = 2
+
 MAX_EPOCHS = 20
 BATCH_SIZE = 32
 HIDDEN_DIM = 32
@@ -43,7 +45,7 @@ class SimpleNLM(object):
 
         self.embed = params.add_lookup_parameters((vocab_size, hidden_dim))
 
-        self.W_hid = params.add_parameters((hidden_dim, hidden_dim))
+        self.W_hid = params.add_parameters((hidden_dim, N_GRAM_SIZE * hidden_dim))
         self.b_hid = params.add_parameters((hidden_dim))
 
         self.W_out = params.add_parameters((vocab_size, hidden_dim))
@@ -58,11 +60,17 @@ class SimpleNLM(object):
 
         losses = []
         for _, sent in batch:
-            for i in range(1, len(sent)):
+            for i in range(2, len(sent)):
+
+                prev_word_2_ix = sent[i - 2]
                 prev_word_ix = sent[i - 1]
                 curr_word_ix = sent[i]
 
+                ctx_2 = dy.lookup(self.embed, prev_word_2_ix)
                 ctx = dy.lookup(self.embed, prev_word_ix)
+                # print(ctx.dim())
+                ctx = dy.concatenate([ctx_2, ctx])
+                # print(ctx.dim())
 
                 # hid is the hidden layer output, size=hidden_size
                 # compute b_hid + W_hid * ctx, but faster
