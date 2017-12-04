@@ -7,6 +7,8 @@ import dynet_config
 dynet_config.set(random_seed=42, autobatch=1, mem=1024)
 dynet_config.set_gpu(True)
 import dynet as dy
+from matplotlib import pyplot as plt
+from matplotlib import patches
 
 MAX_EPOCHS = 20
 BATCH_SIZE = 32
@@ -109,13 +111,19 @@ if __name__ == '__main__':
     with open(os.path.join('..\processed', 'valid_ix.pkl'), 'rb') as f:
         valid_ix = pickle.load(f)
 
+    with open(os.path.join('..\processed', 'test_ix.pkl'), 'rb') as f:
+        test_ix = pickle.load(f)
+
     # initialize dynet parameters and learning algorithm
     params = dy.ParameterCollection()
     trainer = dy.AdadeltaTrainer(params)
     clf = DANClassifier(params, vocab_size=VOCAB_SIZE, hidden_dim=HIDDEN_DIM)
-
+    clf.embed.populate('embeds_baseline_lm_3gram',"/embed")
     train_batches = make_batches(train_ix, BATCH_SIZE)
-    valid_batches = make_batches(valid_ix, BATCH_SIZE)
+    # valid_batches = make_batches(valid_ix, BATCH_SIZE)
+    test_batches = make_batches(test_ix, BATCH_SIZE)
+
+    red_patch = patches.Patch(color='green', label='Test')
 
     for it in range(MAX_EPOCHS):
         tic = clock()
@@ -131,7 +139,7 @@ if __name__ == '__main__':
 
         # iterate over all validation batches, accumulate # correct pred.
         valid_acc = 0
-        for batch in valid_batches:
+        for batch in test_batches:
             dy.renew_cg()
             valid_acc += clf.num_correct(batch)
 
@@ -147,3 +155,7 @@ if __name__ == '__main__':
             total_loss / len(train_ix),
             valid_acc * 100
             ))
+        plt.scatter(x=it, y=valid_acc*100, color='green', s=100)
+    plt.xlabel("Iteration")
+    plt.ylabel("Testing Accuracy")
+    plt.show()

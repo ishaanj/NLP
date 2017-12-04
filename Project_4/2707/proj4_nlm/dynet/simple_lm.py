@@ -17,7 +17,7 @@ N_GRAM_SIZE = 2
 MAX_EPOCHS = 20
 BATCH_SIZE = 32
 HIDDEN_DIM = 32
-USE_UNLABELED = False
+USE_UNLABELED = True
 VOCAB_SIZE = 4748
 
 
@@ -64,7 +64,7 @@ class SimpleNLM(object):
 
                 prev_words = []
                 for j in range(N_GRAM_SIZE):
-                    prev_words.append(sent[j+i-1])
+                    prev_words.append(sent[i-j-1])
                 curr_word_ix = sent[i]
 
                 ctx = dy.lookup(self.embed, prev_words[0])
