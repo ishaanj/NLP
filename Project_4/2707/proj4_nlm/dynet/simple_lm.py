@@ -12,12 +12,12 @@ dynet_config.set(random_seed=42, autobatch=1)
 dynet_config.set_gpu(True)
 import dynet as dy
 
-N_GRAM_SIZE = 2
+N_GRAM_SIZE = 1
 
 MAX_EPOCHS = 20
 BATCH_SIZE = 32
 HIDDEN_DIM = 32
-USE_UNLABELED = True
+USE_UNLABELED = False
 VOCAB_SIZE = 4748
 
 
@@ -100,9 +100,9 @@ class SimpleNLM(object):
 
 if __name__ == '__main__':
 
-    red_patch = patches.Patch(color='red', label='Training')
+    # red_patch = patches.Patch(color='red', label='Training')
     blue_patch = patches.Patch(color='blue', label='Validation')
-    plt.legend(handles=[red_patch, blue_patch])
+    plt.legend(handles=[blue_patch])
 
     with open(os.path.join('..\processed', 'train_ix.pkl'), 'rb') as f:
         train_ix = pickle.load(f)
@@ -147,22 +147,18 @@ if __name__ == '__main__':
 
         toc = clock()
 
-        print(("Epoch {:3d} took {:3.1f}s. "
-               "Train perplexity: {:8.3f} "
-               "Valid perplexity: {:8.3f}").format(
-            it,
-            toc - tic,
-            exp(total_loss / n_train_words),
+        print(
+            exp(total_loss / n_train_words), " ",
             exp(valid_loss / n_valid_words)
-            ))
+            )
 
-        plt.scatter(x=it, y=exp(total_loss / n_train_words), color='red', s=100)
-        plt.scatter(x=it, y=exp(valid_loss / n_valid_words), color='blue', s=100)
-    plt.show()
+        # plt.scatter(x=it, y=exp(total_loss / n_train_words), color='red', s=100)
+        # plt.scatter(x=it, y=exp(valid_loss / n_valid_words), color='blue', s=100)
+    # plt.show()
     # FIXME: make sure to update filenames when implementing ngram models
-    fn = "embeds_baseline_lm_" + str(N_GRAM_SIZE+1) + "gram"
-    if USE_UNLABELED:
-        fn += "_unlabeled"
-
-    print("Saving embeddings to {}".format(fn))
-    lm.embed.save(fn, "/embed")
+    # fn = "embeds_baseline_lm_" + str(N_GRAM_SIZE+1) + "gram"
+    # if USE_UNLABELED:
+    #     fn += "_unlabeled"
+    #
+    # print("Saving embeddings to {}".format(fn))
+    # lm.embed.save(fn, "/embed")

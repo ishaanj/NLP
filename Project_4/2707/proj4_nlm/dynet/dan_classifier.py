@@ -157,5 +157,5 @@ if __name__ == '__main__':
             ))
         plt.scatter(x=it, y=valid_acc*100, color='green', s=100)
     plt.xlabel("Iteration")
-    plt.ylabel("Testing Accuracy")
+    plt.ylabel("Validation Accuracy")
     plt.show()
